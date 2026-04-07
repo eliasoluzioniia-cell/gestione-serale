@@ -23,6 +23,8 @@ export default function App() {
 
   useEffect(() => {
     console.log('App: mounting and fetching session');
+    
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('App: session retrieved', !!session);
       setSession(session)
@@ -31,6 +33,16 @@ export default function App() {
       console.error('App: session error', err);
       setLoading(false);
     });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('App: auth state changed', _event, !!session);
+      setSession(session)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   if (loading) return <div>Loading...</div>
