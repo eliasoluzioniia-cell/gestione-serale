@@ -501,7 +501,8 @@ export default function GestioneClassi({ session }: { session: any }) {
                                   <GraduationCap size={20} />
                                 </div>
                                 <div>
-                                  <h4 className="font-bold text-on-surface line-clamp-1">{(a.materie as any)?.descrizione || (a.materie as any)?.nome}</h4>
+                                  <h4 className="font-bold text-on-surface line-clamp-1">{(a.materia as any)?.descrizione || (a.materia as any)?.nome}</h4>
+
                                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{a.materia?.codice}</div>
                                 </div>
                               </div>

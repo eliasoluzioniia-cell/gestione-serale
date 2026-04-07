@@ -1,0 +1,5 @@
+﻿src/pages/Calendario.tsx(28,36): error TS6133: 'session' is declared but its value is never read.
+src/pages/PianoFormativo.tsx(6,44): error TS6133: 'session' is declared but its value is never read.
+src/pages/RegistroVoti.tsx(2,1): error TS6133: 'supabase' is declared but its value is never read.
+src/pages/RegistroVoti.tsx(7,38): error TS6133: 'session' is declared but its value is never read.
+src/pages/UtentiGestione.tsx(14,40): error TS6133: 'session' is declared but its value is never read.

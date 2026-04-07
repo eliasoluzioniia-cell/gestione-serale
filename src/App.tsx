@@ -44,12 +44,12 @@ export default function App() {
           <Route path="classi" element={<GestioneClassi session={session} />} />
           <Route path="studenti" element={<GestioneStudenti session={session} />} />
           <Route path="materie" element={<Materie session={session} />} />
-          <Route path="voti" element={<RegistroVoti session={session} />} />
-          <Route path="curriculo" element={<PianoFormativo session={session} />} />
+          <Route path="voti" element={<RegistroVoti />} />
+          <Route path="curriculo" element={<PianoFormativo />} />
           <Route path="curriculo-gestione" element={<CurriculoGestione session={session} />} />
           <Route path="tabellone" element={<Tabellone session={session} />} />
-          <Route path="calendario" element={<Calendario session={session} />} />
-          <Route path="utenti" element={<UtentiGestione session={session} />} />
+          <Route path="calendario" element={<Calendario />} />
+          <Route path="utenti" element={<UtentiGestione />} />
           <Route path="configurazioni" element={<Configurazioni session={session} />} />
         </Route>
       </Routes>

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 import { getProveDiRealtaConValutazioni, deleteProvaDiRealta } from '../lib/supabase_api';
 import EditProvaModal from '../components/EditProvaModal';
 
 interface TabelloneProps {
-  session: any;
+  session?: Session | null;
 }
+
 
 export default function Tabellone({ session }: TabelloneProps) {
   const [classes, setClasses] = useState<any[]>([]);
@@ -35,13 +37,14 @@ export default function Tabellone({ session }: TabelloneProps) {
         const { data: doc } = await supabase
           .from('docenti')
           .select('id')
-          .eq('utente_id', session.user.id)
+          .eq('utente_id', session?.user?.id)
           .single();
         if (doc) setDocenteId(doc.id);
       }
     };
     init();
-  }, [role, session.user.id]);
+  }, [role, session?.user?.id]);
+
 
   const fetchData = async () => {
     if (!selectedClass) return;

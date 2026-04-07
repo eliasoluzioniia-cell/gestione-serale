@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+
 interface OrarioLezione {
   id: string;
   giorno: number;

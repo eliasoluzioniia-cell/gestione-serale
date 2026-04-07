@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { Session } from '@supabase/supabase-js'
 import type { Scuola, Indirizzo, AnnoScolastico } from '../types'
 import { 
   GraduationCap, 
@@ -16,7 +17,7 @@ import {
 
 type Tab = 'istituto' | 'indirizzi' | 'anni'
 
-export default function Configurazioni({ session }: { session: any }) {
+export default function Configurazioni({ session }: { session?: Session | null }) {
   const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase()
   const isDocente = role === 'docente'
   const [activeTab, setActiveTab] = useState<Tab>('istituto')

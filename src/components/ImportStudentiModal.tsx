@@ -81,7 +81,8 @@ export default function ImportStudentiModal({ isOpen, onClose, onImportComplete 
     }
   };
 
-  const parsePDF = async (file: File) => {
+  const parsePDF = async (_f: File) => {
+
     // Note: pdfjs-dist usage usually requires a worker. For simplicity in this demo environment, 
     // we'll assume the environment supports basic text extraction or we'll provide a warning.
     alert("L'importazione PDF richiede un formato tabellare standard. Se l'estrazione fallisce, converti il file in Excel o CSV.");

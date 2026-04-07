@@ -1,0 +1,6 @@
+﻿src/App.tsx(47,53): error TS2322: Type '{ session: Session | null; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'session' does not exist on type 'IntrinsicAttributes'.
+src/App.tsx(48,60): error TS2322: Type '{ session: Session | null; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'session' does not exist on type 'IntrinsicAttributes'.
+src/App.tsx(52,57): error TS2322: Type '{ session: Session | null; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'session' does not exist on type 'IntrinsicAttributes'.

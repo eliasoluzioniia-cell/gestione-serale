@@ -10,8 +10,9 @@ interface Assegnazione {
   materia_id: string; 
   docente_id: string; 
   classi?: { anno_corso: number; sezione: string; indirizzi?: { nome: string } };
-  materie?: { nome: string; codice: string };
+  materie?: { descrizione: string; codice: string; nome?: string };
   docenti?: { nome: string; cognome: string };
+
 }
 
 type Tab = 'materie' | 'docenti' | 'cattedre'
@@ -53,7 +54,7 @@ export default function Materie({ session }: { session: any }) {
         supabase.from('assegnazioni_cattedre').select(`
           *,
           classi:classe_id (anno_corso, sezione, indirizzi(nome)),
-          materie:materia_id (descrizione, codice),
+          materie:materia_id (descrizione, codice, nome),
           docenti:docente_id (nome, cognome)
         `)
       ])
@@ -369,7 +370,7 @@ export default function Materie({ session }: { session: any }) {
                                 {a.classi?.anno_corso}{a.classi?.sezione}
                              </span>
                              <div>
-                                <h4 className="font-bold text-on-surface line-clamp-1">{a.materie?.descrizione}</h4>
+                                <h4 className="font-bold text-on-surface line-clamp-1">{(a.materie as any)?.descrizione || (a.materie as any)?.nome}</h4>
                                 <p className="text-xs text-slate-400 font-bold uppercase">{a.docenti?.cognome} {a.docenti?.nome}</p>
                              </div>
                           </div>

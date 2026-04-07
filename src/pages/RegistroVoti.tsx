@@ -3,6 +3,7 @@ import { getDocenteClassi, getCompetenzeByMateria, getStudentiPFI, saveProvaDiRe
 import type { Competenza } from '../types';
 
 export default function RegistroVoti() {
+
   const [loading, setLoading] = useState(false);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [selectedAssegnazione, setSelectedAssegnazione] = useState<string>('');

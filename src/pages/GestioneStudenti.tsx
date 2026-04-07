@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase_api';
 import type { Studente } from '../types';
 import ImportStudentiModal from '../components/ImportStudentiModal';
 
-export default function GestioneStudenti({ session }: { session: any }) {
+export default function GestioneStudenti({ session }: { session?: Session | null }) {
+
   const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase()
   const isDocente = role === 'docente'
   const [studenti, setStudenti] = useState<Studente[]>([]);

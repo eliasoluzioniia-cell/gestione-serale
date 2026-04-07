@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase_api';
-import type { CurriculoEntry, Indirizzo, Classe, Materia } from '../types';
+import { supabase } from '../lib/supabase';
+import type { Indirizzo, Classe } from '../types';
 
 export default function CurricoloIndirizzo() {
+
   const [indirizzi, setIndirizzi] = useState<Indirizzo[]>([]);
   const [classi, setClassi] = useState<Classe[]>([]);
   const [selectedIndirizzo, setSelectedIndirizzo] = useState<string>('');
@@ -44,7 +45,11 @@ export default function CurricoloIndirizzo() {
 
       if (assignError) throw assignError;
 
-      const materiaIds = [...new Set(assignments.map(a => a.materia.id))];
+      const materiaIds = [...new Set(assignments.map((a: any) => {
+        const mat = Array.isArray(a.materia) ? a.materia[0] : a.materia;
+        return mat?.id;
+      }))].filter(Boolean);
+
 
       if (materiaIds.length === 0) {
         setCurriculoCompleto([]);
