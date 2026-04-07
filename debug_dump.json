@@ -1,0 +1,521 @@
+{
+  "classi": [
+    [
+      "idclasse",
+      "nomeclasse",
+      "nomebreveclasse"
+    ],
+    [
+      "C0000",
+      "I periodo",
+      "I per"
+    ],
+    [
+      "C0001",
+      "II periodo",
+      "II Per"
+    ],
+    [
+      "C0002",
+      "III periodo",
+      "III per"
+    ]
+  ],
+  "materie": [
+    [
+      "idmateria",
+      "nomemateria",
+      "nomebrevemateria",
+      "codicemiur"
+    ],
+    [
+      "M0000",
+      "A012 Italiano",
+      "Italiano",
+      "(null)"
+    ],
+    [
+      "M0001",
+      "A012 Storia",
+      "Storia",
+      "(null)"
+    ],
+    [
+      "M0002",
+      "A015 Igiene e cultura sanitaria",
+      "Igiene",
+      "(null)"
+    ],
+    [
+      "M0003",
+      "A017 Elementi storia arte espressioni grafiche",
+      "Arte",
+      "(null)"
+    ],
+    [
+      "M0004",
+      "A018 Psicologia generale",
+      "Psicologia",
+      "(null)"
+    ],
+    [
+      "M0005",
+      "A018 Scienze Umane",
+      "Scienze Umane",
+      "(null)"
+    ],
+    [
+      "M0006",
+      "A020 Fisica",
+      "Fisica",
+      "(null)"
+    ],
+    [
+      "M0007",
+      "A026 Matematica",
+      "Matematica",
+      "(null)"
+    ],
+    [
+      "M0008",
+      "A029 Musica",
+      "Musica",
+      "(null)"
+    ],
+    [
+      "M0009",
+      "A034 Chimica",
+      "Chimica",
+      "(null)"
+    ],
+    [
+      "M0010",
+      "A045 Tecnica Amministrativa  Economia",
+      "Tecnica Amm",
+      "(null)"
+    ],
+    [
+      "M0011",
+      "A046 Diritto e legislazione",
+      "Diritto e leg",
+      "(null)"
+    ],
+    [
+      "M0012",
+      "A046 Diritto ed economia",
+      "Diritto econ",
+      "(null)"
+    ],
+    [
+      "M0013",
+      "A050 Scienze della terra biologia chimica",
+      "Scienze terra -bio",
+      "(null)"
+    ],
+    [
+      "M0014",
+      "A24 Francese",
+      "Francese",
+      "(null)"
+    ],
+    [
+      "M0015",
+      "AB24 Inglese",
+      "Inglese",
+      "(null)"
+    ],
+    [
+      "M0016",
+      "B023 Metologie Operative",
+      "Met Op",
+      "(null)"
+    ],
+    [
+      "M0017",
+      "Disp IDA",
+      "Disp IDA",
+      "(null)"
+    ],
+    [
+      "M0018",
+      "Rec 1/2",
+      "Rec 1/2",
+      "(null)"
+    ],
+    [
+      "M0019",
+      "REC 1/3",
+      "REC 1/3",
+      "(null)"
+    ],
+    [
+      "M0020",
+      "Recup",
+      "Recup",
+      "(null)"
+    ]
+  ],
+  "docenti": [
+    [
+      "iddocente",
+      "nomedocente",
+      "nomebrevedocente"
+    ],
+    [
+      "P0000",
+      "Bongiovanni Franca",
+      "Bongiovanni Franca",
+      "(null)"
+    ],
+    [
+      "P0001",
+      "Calcagno Francesca",
+      "Calcagno Francesca",
+      "(null)"
+    ],
+    [
+      "P0002",
+      "Calcagno Giuseppe Gaetano",
+      "Calcagno Giuseppe Gaetano",
+      "(null)"
+    ],
+    [
+      "P0003",
+      "Cancaro Fabio",
+      "Cancaro Fabio",
+      "(null)"
+    ],
+    [
+      "P0004",
+      "Capr\u00ec Maria",
+      "Capr\u00ec Maria",
+      "(null)"
+    ],
+    [
+      "P0005",
+      "Casalotto Daniela",
+      "Casalotto Daniela",
+      "(null)"
+    ],
+    [
+      "P0006",
+      "Cristina Fabiana",
+      "Cristina Fabiana",
+      "(null)"
+    ],
+    [
+      "P0007",
+      "D'Auria Santina Elisa",
+      "D'Auria Santina Elisa",
+      "(null)"
+    ],
+    [
+      "P0008",
+      "Forte Sabrina",
+      "Forte Sabrina",
+      "(null)"
+    ],
+    [
+      "P0009",
+      "Giunta Mario",
+      "Giunta Mario",
+      "(null)"
+    ],
+    [
+      "P0010",
+      "La Porta Rosa Maria",
+      "La Porta Rosa Maria",
+      "(null)"
+    ],
+    [
+      "P0011",
+      "Luca Randazzo",
+      "Luca Randazzo",
+      "(null)"
+    ],
+    [
+      "P0012",
+      "Mancuso Luana",
+      "Mancuso Luana",
+      "(null)"
+    ],
+    [
+      "P0013",
+      "Manno Giuseppina",
+      "Manno Giuseppina",
+      "(null)"
+    ],
+    [
+      "P0014",
+      "Zangh\u00ec Giuseppe",
+      "Zangh\u00ec Giuseppe",
+      "(null)"
+    ]
+  ],
+  "lezioni": [
+    [
+      "idlezione",
+      "durata",
+      "idgiorno",
+      "idora",
+      "idfoglio",
+      "idmateria",
+      "idsede",
+      "idmodulo"
+    ],
+    [
+      "L0000000",
+      "60",
+      "0",
+      "0",
+      "F0000",
+      "M0007",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000001",
+      "60",
+      "0",
+      "1",
+      "F0000",
+      "M0001",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000002",
+      "60",
+      "0",
+      "1",
+      "F0000",
+      "M0007",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000003",
+      "60",
+      "0",
+      "1",
+      "F0000",
+      "M0013",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000004",
+      "120",
+      "0",
+      "2",
+      "F0000",
+      "M0007",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000005",
+      "60",
+      "0",
+      "2",
+      "F0000",
+      "M0014",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000006",
+      "60",
+      "0",
+      "2",
+      "F0000",
+      "M0000",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000007",
+      "60",
+      "0",
+      "3",
+      "F0000",
+      "M0014",
+      "S0000",
+      "U0000"
+    ],
+    [
+      "L0000008",
+      "60",
+      "0",
+      "3",
+      "F0000",
+      "M0000",
+      "S0000",
+      "U0000"
+    ]
+  ],
+  "classilezioni": [
+    [
+      "idlezione",
+      "idfoglio",
+      "idclasse",
+      "inizio",
+      "fine",
+      "idrelazione"
+    ],
+    [
+      "L0000000",
+      "F0000",
+      "C0000",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000001",
+      "F0000",
+      "C0001",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000002",
+      "F0000",
+      "C0002",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000003",
+      "F0000",
+      "C0000",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000004",
+      "F0000",
+      "C0001",
+      "0",
+      "1",
+      "-1"
+    ],
+    [
+      "L0000005",
+      "F0000",
+      "C0000",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000006",
+      "F0000",
+      "C0002",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000007",
+      "F0000",
+      "C0002",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000008",
+      "F0000",
+      "C0000",
+      "0",
+      "0",
+      "-1"
+    ]
+  ],
+  "docentilezioni": [
+    [
+      "idlezione",
+      "idfoglio",
+      "iddocente",
+      "inizio",
+      "fine",
+      "idrelazione"
+    ],
+    [
+      "L0000000",
+      "F0000",
+      "P0008",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000001",
+      "F0000",
+      "P0014",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000002",
+      "F0000",
+      "P0008",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000003",
+      "F0000",
+      "P0011",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000004",
+      "F0000",
+      "P0008",
+      "0",
+      "1",
+      "-1"
+    ],
+    [
+      "L0000005",
+      "F0000",
+      "P0004",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000006",
+      "F0000",
+      "P0014",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000007",
+      "F0000",
+      "P0004",
+      "0",
+      "0",
+      "-1"
+    ],
+    [
+      "L0000008",
+      "F0000",
+      "P0014",
+      "0",
+      "0",
+      "-1"
+    ]
+  ]
+}
