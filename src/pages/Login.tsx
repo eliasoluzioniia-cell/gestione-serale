@@ -65,6 +65,9 @@ export default function Login() {
 
       if (signUpError) {
         setError(signUpError.message)
+      } else if (data.session) {
+        // Se la conferma email è disattivata, Supabase restituisce subito la sessione
+        navigate('/')
       } else if (data.user) {
         setError('Registrazione completata! Controlla la tua email per confermare l\'account.')
       }
