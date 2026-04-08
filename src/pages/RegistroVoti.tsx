@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getDocenteClassi, getCompetenzeByMateria, getStudentiPFIMulticompetenza, saveProvaDiRealta, saveValutazioni } from '../lib/supabase_api';
+import { supabase, getDocenteClassi, getCompetenzeByMateria, getStudentiPFIMulticompetenza, saveProvaDiRealta, saveValutazioni } from '../lib/supabase_api';
 import type { Competenza } from '../types';
 
-export default function RegistroVoti() {
+export default function RegistroVoti({ session }: { session: any }) {
+  const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase()
+  const isAdminOrTutor = role === 'admin' || role === 'tutor';
 
   const [loading, setLoading] = useState(false);
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -23,8 +25,22 @@ export default function RegistroVoti() {
   useEffect(() => {
     const fetchAssegnazioni = async () => {
       try {
-        const data = await getDocenteClassi();
-        setAssignments(data || []);
+        if (isAdminOrTutor) {
+          // fetch all assignments for all teachers
+          const { data, error } = await supabase
+            .from('assegnazioni_cattedre')
+            .select(`
+              id,
+              classe:classi(id, anno_corso, sezione, periodo, anno_scolastico_id),
+              materia:materie(id, codice, descrizione),
+              docente:docenti(nome, cognome)
+            `);
+          if (error) throw error;
+          setAssignments(data || []);
+        } else {
+          const data = await getDocenteClassi();
+          setAssignments(data || []);
+        }
       } catch (err) {
         console.warn("API non connessa, uso dati mock.");
         setAssignments([
@@ -34,7 +50,7 @@ export default function RegistroVoti() {
       }
     };
     fetchAssegnazioni();
-  }, []);
+  }, [isAdminOrTutor]);
 
   useEffect(() => {
     if (!selectedAssegnazione) { setCompetenze([]); setSelectedCompetenze([]); return; }
@@ -173,7 +189,7 @@ export default function RegistroVoti() {
             <option value="">-- Seleziona Assegnazione --</option>
             {assignments.map(a => (
               <option key={a.id} value={a.id}>
-                {a.classe.anno_corso} {a.classe.sezione} - {a.materia.codice} ({a.materia.descrizione})
+                {a.classe.anno_corso}{a.classe.sezione} - {a.materia.descrizione} {a.docente ? `(${a.docente.cognome})` : ''}
               </option>
             ))}
           </select>

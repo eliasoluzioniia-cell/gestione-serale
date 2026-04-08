@@ -24,7 +24,7 @@ export default function Tabellone({ session }: TabelloneProps) {
   const [selectedProva, setSelectedProva] = useState<any | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const role = session?.user?.user_metadata?.role || 'studente';
+  const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase();
   const isAdminOrTutor = role === 'admin' || role === 'tutor';
 
   useEffect(() => {
