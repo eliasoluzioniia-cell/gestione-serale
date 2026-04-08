@@ -160,7 +160,7 @@ export async function getStudentiPFIMulticompetenza(classeId: string, competenze
   }).filter(Boolean);
 
   // 2. Recupera TUTTI i dati PFI per queste competenze
-  const { data: pfiData, error: pfiError } = await supabase
+  const { data: pfiData } = await supabase
     .from('pfi')
     .select('studente_id, competenza_id, ore_previste, crediti_riconosciuti')
     .in('studente_id', studentIds)

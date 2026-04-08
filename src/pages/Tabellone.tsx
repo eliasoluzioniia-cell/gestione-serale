@@ -53,7 +53,7 @@ export default function Tabellone({ session }: TabelloneProps) {
       // 1. Studenti
       const { data: stData } = await supabase
         .from('studenti_classi')
-        .select('studenti(*)')
+        .select('studenti:studenti(*)')
         .eq('classe_id', selectedClass);
       setStudents(stData?.map((d: any) => d.studenti) || []);
 
