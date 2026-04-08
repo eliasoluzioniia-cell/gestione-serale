@@ -7,25 +7,40 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
+ * 0. Recupera l'ID interno del docente per l'utente loggato
+ */
+export async function getCurrentDocenteId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // Cerca il docente collegato attraverso la tabella utenti (auth_id)
+  const { data, error } = await supabase
+    .from('docenti')
+    .select('id, utente:utenti!inner(auth_id)')
+    .eq('utente.auth_id', user.id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data.id;
+}
+
+/**
  * 1. Caricamento Classi del Docente
  * Recupera le classi (e materie) assegnate al docente attualmente autenticato.
  */
 export async function getDocenteClassi() {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) throw new Error("Utente non autenticato");
+  const docenteId = await getCurrentDocenteId();
+  if (!docenteId) return [];
 
-  // In un'architettura completa con RLS, il backend filtra automaticamente
-  // per docente_id leggendo auth.uid(), quindi basterebbe querare assegnazioni_cattedre.
   const { data, error } = await supabase
     .from('assegnazioni_cattedre')
     .select(`
       id,
       classe:classi(id, anno_corso, sezione, periodo, anno_scolastico_id),
-      materia:materie(id, codice, descrizione)
+      materia:materie(id, codice, descrizione),
+      docente:docenti(id, nome, cognome)
     `)
-    // Filtro esplicito (se necessario, in caso la policy RLS non lo faccia in base all'UUID Auth)
-    // .eq('docente_id', DOCENTE_UUID) 
-    ;
+    .eq('docente_id', docenteId);
 
   if (error) throw error;
   return data;

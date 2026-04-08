@@ -36,9 +36,9 @@ export default function Tabellone({ session }: TabelloneProps) {
       if (role === 'docente') {
         const { data: doc } = await supabase
           .from('docenti')
-          .select('id')
-          .eq('utente_id', session?.user?.id)
-          .single();
+          .select('id, utente:utenti!inner(auth_id)')
+          .eq('utente.auth_id', session?.user?.id)
+          .maybeSingle();
         if (doc) setDocenteId(doc.id);
       }
     };

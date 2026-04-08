@@ -42,11 +42,8 @@ export default function RegistroVoti({ session }: { session: any }) {
           setAssignments(data || []);
         }
       } catch (err) {
-        console.warn("API non connessa, uso dati mock.");
-        setAssignments([
-          { id: 'asseg1', classe: { id: 'c1', anno_corso: '1', sezione: 'A', periodo: 'Primo Periodo'}, materia: { id: 'm1', codice: 'MAT', descrizione: 'Matematica' } },
-          { id: 'asseg2', classe: { id: 'c2', anno_corso: '2', sezione: 'B', periodo: 'Secondo Periodo'}, materia: { id: 'm2', codice: 'ITA', descrizione: 'Italiano' } }
-        ]);
+        console.error("Errore nel recupero assegnazioni:", err);
+        setAssignments([]);
       }
     };
     fetchAssegnazioni();
