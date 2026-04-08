@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getProfiles, updateProfile, deleteProfile, adminCreateUser } from '../lib/supabase_api';
+import { getProfiles, updateProfile, deleteProfile } from '../lib/supabase_api';
+import { supabase } from '../lib/supabase';
 import { Modal } from '../components/Modal';
 
 interface Profile {
@@ -48,13 +49,25 @@ export default function UtentiGestione() {
     
     setIsCreating(true);
     try {
-      await adminCreateUser(newUser);
+      const { error } = await supabase.functions.invoke('create-user', {
+        body: newUser,
+      });
+
+      if (error) {
+        // Se l'errore è 404, la funzione non è stata deployata
+        if (error.message?.includes('404') || error.message?.includes('not found')) {
+          throw new Error("LA FUNZIONE NON È STATA TROVATA. Devi lanciare 'npx supabase functions deploy create-user' nel terminale.");
+        }
+        throw error;
+      }
+
       setIsCreateModalOpen(false);
       setNewUser({ email: '', fullName: '', password: '', role: 'Docente' });
       fetchProfiles();
       alert("Utente creato con successo!");
     } catch (err: any) {
-      alert("Errore nella creazione: " + (err.message || "Verifica la Edge Function"));
+      console.error("Dettaglio errore:", err);
+      alert("ERRORE: " + (err.message || "Errore sconosciuto nella comunicazione con Supabase. Verifica che la funzione sia online."));
     } finally {
       setIsCreating(false);
     }
