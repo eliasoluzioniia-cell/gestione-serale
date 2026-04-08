@@ -8,6 +8,11 @@ ALTER TABLE public.utenti DROP CONSTRAINT IF EXISTS utenti_ruolo_check;
 ALTER TABLE public.utenti ADD CONSTRAINT utenti_ruolo_check 
     CHECK (ruolo IN ('Admin', 'Docente', 'Tutor', 'Studente'));
 
+-- Aggiunta colonne per gestione semplificata (Cache dei dati di Auth)
+ALTER TABLE public.utenti ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.utenti ADD COLUMN IF NOT EXISTS nome_completo TEXT;
+
+
 -- 2. FUNZIONE TRIGGER PER NUOVI UTENTI
 -- Questa funzione sincronizza auth.users con la nostra tabella public.utenti
 -- Se il ruolo è Docente e viene fornito un docente_id nei metadati, lo collega automaticamente.
@@ -18,10 +23,12 @@ DECLARE
     v_docente_id UUID;
 BEGIN
     -- 1. Crea il record in public.utenti
-    INSERT INTO public.utenti (auth_id, ruolo)
+    INSERT INTO public.utenti (auth_id, ruolo, email, nome_completo)
     VALUES (
         NEW.id, 
-        COALESCE(NEW.raw_user_meta_data->>'role', 'Docente')
+        COALESCE(NEW.raw_user_meta_data->>'role', 'Docente'),
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'nome_completo')
     )
     RETURNING id INTO v_utente_uuid;
 

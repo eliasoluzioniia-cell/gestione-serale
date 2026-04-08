@@ -395,13 +395,24 @@ export async function bulkImportCurriculo(data: {
  */
 export async function getProfiles() {
   const { data, error } = await supabase
-    .from('profiles')
+    .from('utenti')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('ruolo', { ascending: true });
 
   if (error) throw error;
   return data;
 }
+
+export async function adminCreateUser(userData: { email: string; password?: string; role: string; fullName: string }) {
+  // Chiamata alla Edge Function per creare l'utente in modo sicuro
+  const { data, error } = await supabase.functions.invoke('create-user', {
+    body: userData,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
 
 export async function updateProfile(id: string, updates: any) {
   const { data, error } = await supabase
