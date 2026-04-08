@@ -53,16 +53,24 @@ export default function Materie({ session }: { session: any }) {
         supabase.from('classi').select('*, indirizzi(nome)').order('anno_corso'),
         supabase.from('assegnazioni_cattedre').select(`
           *,
-          classi:classe_id (anno_corso, sezione, indirizzi(nome)),
-          materie:materia_id (descrizione, codice, nome),
+          classi:classe_id (anno_corso, sezione, indirizzi:indirizzo_id(nome)),
+          materie:materia_id (descrizione, codice),
           docenti:docente_id (nome, cognome)
         `)
       ])
+
+      if (mRes.error) throw new Error("Materie: " + mRes.error.message);
+      if (dRes.error) throw new Error("Docenti: " + dRes.error.message);
+      if (cRes.error) throw Error("Classi: " + cRes.error.message);
+      if (aRes.error) throw Error("Cattedre: " + aRes.error.message);
 
       setMaterie(mRes.data || [])
       setDocenti(dRes.data || [])
       setClassi(cRes.data || [])
       setAssegnazioni(aRes.data || [])
+    } catch (err: any) {
+      console.error("Fetch error:", err)
+      setError(err.message || "Errore durante il caricamento dei dati")
     } finally {
       setLoading(false)
     }

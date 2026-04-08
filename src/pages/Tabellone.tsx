@@ -149,9 +149,8 @@ export default function Tabellone({ session }: TabelloneProps) {
       g.prova.assegnazione.materia.id === subjectId &&
       g.prova.competenza.id === compId
     );
-    if (studentGrades.length === 0) return '-';
-    const last = studentGrades[studentGrades.length - 1];
-    return last.voto_numerico || last.livello;
+    if (studentGrades.length === 0) return null;
+    return studentGrades[studentGrades.length - 1];
   };
 
 
@@ -232,11 +231,31 @@ export default function Tabellone({ session }: TabelloneProps) {
                       <td className="py-5 px-8 font-bold text-slate-900 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0,02)]">
                         {st.cognome} {st.nome}
                       </td>
-                      {subjects.map(col => (
-                        <td key={col.id} className="py-5 px-6 text-center text-slate-600 font-headline font-bold text-lg border-r border-slate-50">
-                          {getGradesBySubComp(st.id, col.materia_id, col.competenza_id)}
-                        </td>
-                      ))}
+                      {subjects.map(col => {
+                        const assessment = getGradesBySubComp(st.id, col.materia_id, col.competenza_id);
+                        return (
+                          <td key={col.id} className="py-5 px-6 text-center text-slate-600 border-r border-slate-50">
+                            {assessment ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                {assessment.voto_numerico && (
+                                  <span className="font-headline font-bold text-lg text-slate-900 leading-none">
+                                    {assessment.voto_numerico}
+                                  </span>
+                                )}
+                                {assessment.livello && (
+                                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+                                    assessment.voto_numerico ? 'bg-slate-100 text-slate-500' : 'bg-primary/10 text-primary text-base px-2 py-1'
+                                  }`}>
+                                    {assessment.livello}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}

@@ -11,6 +11,8 @@ export default function GestioneStudenti({ session }: { session?: Session | null
   const [studenti, setStudenti] = useState<Studente[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string>('all');
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,6 +28,7 @@ export default function GestioneStudenti({ session }: { session?: Session | null
         *,
         studenti_classi(
           classi(
+            id,
             periodo,
             sezione
           )
@@ -38,8 +41,17 @@ export default function GestioneStudenti({ session }: { session?: Session | null
     setLoading(false);
   };
 
+  const fetchClasses = async () => {
+    const { data } = await supabase
+      .from('classi')
+      .select('id, periodo, sezione')
+      .order('anno_corso');
+    if (data) setClasses(data);
+  };
+
   useEffect(() => {
     fetchStudenti();
+    fetchClasses();
   }, []);
 
   const handleOpenAdd = () => {
@@ -79,9 +91,11 @@ export default function GestioneStudenti({ session }: { session?: Session | null
     setIsSubmitting(false);
   };
 
-  const filteredStudenti = studenti.filter(s => 
-    `${s.nome} ${s.cognome} ${s.matricola}`.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudenti = studenti.filter(s => {
+    const matchesSearch = `${s.nome} ${s.cognome} ${s.matricola}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClass = selectedClassId === 'all' || s.studenti_classi?.some((sc: any) => sc.classi?.id === selectedClassId);
+    return matchesSearch && matchesClass;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -110,16 +124,31 @@ export default function GestioneStudenti({ session }: { session?: Session | null
         )}
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-surface-variant flex items-center gap-4">
-        <span className="material-symbols-outlined text-slate-400">search</span>
-        <input 
-          type="text" 
-          placeholder="Cerca per nome, cognome o matricola..." 
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="flex-1 bg-transparent border-none outline-none text-lg font-medium placeholder:text-slate-300"
-        />
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        <div className="flex-1 w-full bg-white p-6 rounded-3xl shadow-sm border border-surface-variant flex items-center gap-4">
+          <span className="material-symbols-outlined text-slate-400">search</span>
+          <input 
+            type="text" 
+            placeholder="Cerca per nome, cognome o matricola..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none text-lg font-medium placeholder:text-slate-300"
+          />
+        </div>
+        
+        <div className="w-full md:w-72 bg-white p-4 rounded-3xl shadow-sm border border-surface-variant flex items-center gap-3">
+          <span className="material-symbols-outlined text-slate-400">filter_list</span>
+          <select 
+            value={selectedClassId}
+            onChange={e => setSelectedClassId(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none font-bold text-slate-600 appearance-none cursor-pointer"
+          >
+            <option value="all">Tutte le classi</option>
+            {classes.map(c => (
+              <option key={c.id} value={c.id}>{c.periodo?.split(' ')[0]} {c.sezione}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading ? (

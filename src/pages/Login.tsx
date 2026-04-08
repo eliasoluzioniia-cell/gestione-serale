@@ -55,7 +55,10 @@ export default function Login() {
         email,
         password,
         options: { 
-          data: { role },
+          data: { 
+            role,
+            docente_id: role === 'Docente' ? selectedTeacherId : null
+          },
           emailRedirectTo: `${window.location.origin}/dashboard`
         }
       })
@@ -63,30 +66,6 @@ export default function Login() {
       if (signUpError) {
         setError(signUpError.message)
       } else if (data.user) {
-        // Link teacher if Docente
-        if (role === 'Docente' && selectedTeacherId) {
-          // The trigger on auth.users created public.utenti. 
-          // We need to wait a moment or just use the ID.
-          // Since it's a fresh signup, we update the docenti table.
-          
-          // Note: In a real world app, this should be a single transaction or managed by a more secure flow.
-          // Here, we try to update based on the newly created user's profile.
-          
-          const { data: profile } = await supabase
-            .from('utenti')
-            .select('id')
-            .eq('auth_id', data.user.id)
-            .single()
-
-          if (profile) {
-            const { error: updateError } = await supabase
-              .from('docenti')
-              .update({ utente_id: profile.id })
-              .eq('id', selectedTeacherId)
-            
-            if (updateError) console.error("Errore collegamento docente:", updateError)
-          }
-        }
         setError('Registrazione completata! Controlla la tua email per confermare l\'account.')
       }
     }

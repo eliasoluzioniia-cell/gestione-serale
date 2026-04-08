@@ -139,6 +139,45 @@ export async function getStudentiPFI(classeId: string, competenzaId: string) {
 }
 
 /**
+ * 3b. Caricamento Studenti PFI per multiple competenze
+ * Recupera gli studenti di una classe e tutti i loro record PFI per un set di competenze.
+ */
+export async function getStudentiPFIMulticompetenza(classeId: string, competenzeIds: string[]) {
+  // 1. Recupera TUTTI gli studenti della classe
+  const { data: students, error: stError } = await supabase
+    .from('studenti_classi')
+    .select(`
+      studente:studenti(id, nome, cognome, matricola)
+    `)
+    .eq('classe_id', classeId);
+
+  if (stError) throw stError;
+  if (!students || students.length === 0) return [];
+
+  const studentIds = students.map(s => {
+    const obj = Array.isArray(s.studente) ? s.studente[0] : s.studente;
+    return obj?.id;
+  }).filter(Boolean);
+
+  // 2. Recupera TUTTI i dati PFI per queste competenze
+  const { data: pfiData, error: pfiError } = await supabase
+    .from('pfi')
+    .select('studente_id, competenza_id, ore_previste, crediti_riconosciuti')
+    .in('studente_id', studentIds)
+    .in('competenza_id', competenzeIds);
+
+  // 3. Restituisce gli studenti con la mappa dei loro PFI
+  return students.map(s => {
+    const studentObj = Array.isArray(s.studente) ? s.studente[0] : s.studente;
+    const studentPfis = pfiData?.filter(p => p.studente_id === studentObj?.id) || [];
+    return {
+      studente: studentObj,
+      pfis: studentPfis // Array di record PFI per questo studente
+    };
+  });
+}
+
+/**
  * 4. Caricamento/Salvataggio Prova di Realtà
  */
 export async function saveProvaDiRealta(

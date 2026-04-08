@@ -135,7 +135,12 @@ export default function GestioneClassi({ session }: { session: any }) {
       .select('studenti(*)')
       .eq('classe_id', classId)
     
-    if (data) setEnrolledStudents(data.map((d: any) => d.studenti))
+    if (data) {
+      const sorted = data.map((d: any) => d.studenti).sort((a: any, b: any) => 
+        (a.cognome || '').localeCompare(b.cognome || '')
+      );
+      setEnrolledStudents(sorted);
+    }
     setLoading(false)
   }
 

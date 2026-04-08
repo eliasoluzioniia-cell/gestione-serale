@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getDocenteClassi, getCompetenzeByMateria, getStudentiPFI, saveProvaDiRealta, saveValutazioni } from '../lib/supabase_api';
+import { getDocenteClassi, getCompetenzeByMateria, getStudentiPFIMulticompetenza, saveProvaDiRealta, saveValutazioni } from '../lib/supabase_api';
 import type { Competenza } from '../types';
 
 export default function RegistroVoti() {
@@ -9,7 +9,7 @@ export default function RegistroVoti() {
   const [selectedAssegnazione, setSelectedAssegnazione] = useState<string>('');
   
   const [competenze, setCompetenze] = useState<Competenza[]>([]);
-  const [selectedCompetenza, setSelectedCompetenza] = useState<string>('');
+  const [selectedCompetenze, setSelectedCompetenze] = useState<string[]>([]);
   
   const [studenti, setStudenti] = useState<any[]>([]);
   
@@ -17,18 +17,16 @@ export default function RegistroVoti() {
   const [descrizioneProva, setDescrizioneProva] = useState('');
   const [dataProva, setDataProva] = useState(new Date().toISOString().split('T')[0]);
   
-  // Voti grid (studente_id -> { voto_numerico, livello })
-  const [votiInput, setVotiInput] = useState<Record<string, { voto_numerico: string, livello: string }>>({});
+  // Voti grid (studente_id -> competenza_id -> { voto_numerico, livello })
+  const [votiInput, setVotiInput] = useState<Record<string, Record<string, { voto_numerico: string, livello: string }>>>({});
 
   useEffect(() => {
-    // Carica cattedre del docente finto in questo mock (visto che l'auth non e' ancora attivo al 100%)
-    // Nella realtà `getDocenteClassi` userà l'SDK. Simuliamo il caricamento:
     const fetchAssegnazioni = async () => {
       try {
         const data = await getDocenteClassi();
         setAssignments(data || []);
       } catch (err) {
-        console.warn("API non connessa o RLS mancante, uso dati mock visuali.");
+        console.warn("API non connessa, uso dati mock.");
         setAssignments([
           { id: 'asseg1', classe: { id: 'c1', anno_corso: '1', sezione: 'A', periodo: 'Primo Periodo'}, materia: { id: 'm1', codice: 'MAT', descrizione: 'Matematica' } },
           { id: 'asseg2', classe: { id: 'c2', anno_corso: '2', sezione: 'B', periodo: 'Secondo Periodo'}, materia: { id: 'm2', codice: 'ITA', descrizione: 'Italiano' } }
@@ -39,7 +37,7 @@ export default function RegistroVoti() {
   }, []);
 
   useEffect(() => {
-    if (!selectedAssegnazione) { setCompetenze([]); setSelectedCompetenza(''); return; }
+    if (!selectedAssegnazione) { setCompetenze([]); setSelectedCompetenze([]); return; }
     const assign = assignments.find(a => a.id === selectedAssegnazione);
     if (!assign) return;
 
@@ -58,58 +56,62 @@ export default function RegistroVoti() {
   }, [selectedAssegnazione, assignments]);
 
   useEffect(() => {
-    if (!selectedAssegnazione || !selectedCompetenza) { setStudenti([]); return; }
+    if (!selectedAssegnazione || selectedCompetenze.length === 0) { setStudenti([]); return; }
     const assign = assignments.find(a => a.id === selectedAssegnazione);
     
-    // Fetch Studenti PFI
     const fetchSt = async () => {
       setLoading(true);
       try {
-        const st = await getStudentiPFI(assign.classe.id, selectedCompetenza);
+        const st = await getStudentiPFIMulticompetenza(assign.classe.id, selectedCompetenze);
         setStudenti(st || []);
       } catch (e) {
-        // Mock fallback
-        setStudenti([
-          { studente: { id: 's1', nome: 'Mario', cognome: 'Rossi', matricola: 'MAT01' }, pfi: { ore_previste: 40, crediti_riconosciuti: false } },
-          { studente: { id: 's2', nome: 'Luigi', cognome: 'Verdi', matricola: 'MAT02' }, pfi: { ore_previste: 20, crediti_riconosciuti: true } }
-        ]);
+        console.error("Error fetching multi PFI", e);
       }
       setLoading(false);
     };
     fetchSt();
-  }, [selectedAssegnazione, selectedCompetenza, assignments]);
+  }, [selectedAssegnazione, selectedCompetenze, assignments]);
 
   const handleSave = async () => {
-    if (!selectedAssegnazione || !selectedCompetenza || !descrizioneProva) return alert("Compila tutti i campi della prova.");
+    if (!selectedAssegnazione || selectedCompetenze.length === 0 || !descrizioneProva) return alert("Compila tutti i campi della prova.");
     
     try {
       setLoading(true);
       
-      // 1. Salva la Prova di Realtà
-      const prova = await saveProvaDiRealta(
-        selectedAssegnazione,
-        selectedCompetenza,
-        descrizioneProva,
-        dataProva
-      );
+      for (const compId of selectedCompetenze) {
+        const prova = await saveProvaDiRealta(
+          selectedAssegnazione,
+          compId,
+          descrizioneProva,
+          dataProva
+        );
 
-      // 2. Prepara le Valutazioni
-      const valutazioniPayload = studenti
-        .filter(s => !s.pfi?.crediti_riconosciuti && (votiInput[s.studente.id]?.voto_numerico || votiInput[s.studente.id]?.livello))
-        .map(s => ({
-          prova_id: prova.id,
-          studente_id: s.studente.id,
-          voto_numerico: votiInput[s.studente.id]?.voto_numerico ? Number(votiInput[s.studente.id].voto_numerico) : undefined,
-          livello: votiInput[s.studente.id]?.livello as any
-        }));
+        const valutazioniPayload = studenti
+          .filter(s => {
+            const pfiForComp = s.pfis?.find((p: any) => p.competenza_id === compId);
+            const hasCredit = pfiForComp?.crediti_riconosciuti;
+            const inputs = votiInput[s.studente.id]?.[compId];
+            return !hasCredit && (inputs?.voto_numerico || inputs?.livello);
+          })
+          .map(s => {
+            const inputs = votiInput[s.studente.id][compId];
+            return {
+              prova_id: prova.id,
+              studente_id: s.studente.id,
+              voto_numerico: inputs.voto_numerico ? Number(inputs.voto_numerico) : undefined,
+              livello: inputs.livello as any
+            };
+          });
 
-      if (valutazioniPayload.length > 0) {
-        await saveValutazioni(valutazioniPayload);
+        if (valutazioniPayload.length > 0) {
+          await saveValutazioni(valutazioniPayload);
+        }
       }
 
-      alert("Prova di Realtà e Valutazioni salvate con successo!");
+      alert("Tutte le Prove di Realtà e Valutazioni sono state salvate con successo!");
       setDescrizioneProva('');
       setVotiInput({});
+      setSelectedCompetenze([]);
     } catch (e: any) {
       console.error(e);
       alert("Errore nel salvataggio: " + (e.message || "Errore sconosciuto"));
@@ -118,14 +120,23 @@ export default function RegistroVoti() {
     }
   };
 
-  const handleGradesChange = (studentId: string, field: 'voto_numerico' | 'livello', value: string) => {
+  const handleGradesChange = (studentId: string, compId: string, field: 'voto_numerico' | 'livello', value: string) => {
     setVotiInput(prev => ({
       ...prev,
       [studentId]: {
-        ...prev[studentId],
-        [field]: value
+        ...(prev[studentId] || {}),
+        [compId]: {
+          ...(prev[studentId]?.[compId] || { voto_numerico: '', livello: '' }),
+          [field]: value
+        }
       }
     }));
+  };
+
+  const toggleCompetenza = (compId: string) => {
+    setSelectedCompetenze(prev => 
+      prev.includes(compId) ? prev.filter(id => id !== compId) : [...prev, compId]
+    );
   };
 
   return (
@@ -141,7 +152,7 @@ export default function RegistroVoti() {
         </div>
         <button 
           onClick={handleSave}
-          disabled={!selectedCompetenza || loading || studenti.length === 0}
+          disabled={selectedCompetenze.length === 0 || loading || studenti.length === 0}
           className="bg-primary text-white px-8 py-3.5 rounded-2xl font-bold shadow-lg shadow-primary/25 hover:bg-primary-container transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1"
         >
           {loading ? <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span> : <span className="material-symbols-outlined text-xl">save</span>}
@@ -149,7 +160,6 @@ export default function RegistroVoti() {
         </button>
       </div>
 
-      {/* Controller Top */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-surface-variant grid grid-cols-1 md:grid-cols-2 gap-6 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none transition-transform group-hover:scale-110"></div>
         
@@ -157,7 +167,7 @@ export default function RegistroVoti() {
           <label className="text-sm font-bold text-slate-500 uppercase tracking-wider">La tua Classe / Materia</label>
           <select 
             value={selectedAssegnazione} 
-            onChange={e => { setSelectedAssegnazione(e.target.value); setSelectedCompetenza(''); }}
+            onChange={e => { setSelectedAssegnazione(e.target.value); setSelectedCompetenze([]); }}
             className="w-full px-5 py-4 bg-surface-container border border-outline-variant rounded-2xl focus:ring-4 focus:ring-primary/20 appearance-none font-medium text-lg outline-none transition-all cursor-pointer"
           >
             <option value="">-- Seleziona Assegnazione --</option>
@@ -169,26 +179,50 @@ export default function RegistroVoti() {
           </select>
         </div>
 
-        <div className="space-y-2 relative z-10">
-          <label className="text-sm font-bold text-slate-500 uppercase tracking-wider">Competenza da valutare</label>
-          <select 
-            value={selectedCompetenza} 
-            onChange={e => setSelectedCompetenza(e.target.value)}
-            disabled={competenze.length === 0}
-            className="w-full px-5 py-4 bg-surface-container border border-outline-variant rounded-2xl focus:ring-4 focus:ring-primary/20 appearance-none font-medium text-lg outline-none transition-all cursor-pointer disabled:opacity-50"
-          >
-            <option value="">-- Seleziona Competenza --</option>
+        <div className="space-y-4 relative z-10">
+          <label className="text-sm font-bold text-slate-500 uppercase tracking-wider">Competenze da valutare (Selezione Multipla)</label>
+          <div className="flex flex-wrap gap-2 mb-2 min-h-[40px] items-center p-2 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            {selectedCompetenze.length === 0 && <span className="text-xs text-slate-400 font-medium px-2">Nessuna competenza selezionata</span>}
+            {selectedCompetenze.map(id => {
+              const comp = competenze.find(c => c.id === id);
+              return (
+                <div key={id} className="bg-primary/10 text-primary px-3 py-1.5 rounded-lg flex items-center gap-2 border border-primary/20">
+                  <span className="text-xs font-black">{comp?.codice}</span>
+                  <button onClick={() => toggleCompetenza(id)} className="hover:text-primary-container flex items-center">
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[150px] overflow-y-auto p-1 custom-scrollbar">
             {competenze.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.codice} - {c.descrizione} {c.asse ? `(${c.asse})` : ''}
-              </option>
+              <label 
+                key={c.id} 
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  selectedCompetenze.includes(c.id) 
+                    ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/30' 
+                    : 'bg-white border-slate-100 hover:border-primary/20 hover:bg-slate-50'
+                }`}
+              >
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                  checked={selectedCompetenze.includes(c.id)}
+                  onChange={() => toggleCompetenza(c.id)}
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-black text-on-surface leading-none">{c.codice}</span>
+                  <span className="text-[10px] text-slate-400 font-medium truncate max-w-[150px]">{c.descrizione}</span>
+                </div>
+              </label>
             ))}
-          </select>
+            {competenze.length === 0 && <div className="col-span-full py-4 text-center text-xs text-slate-400 italic">Seleziona prima una materia</div>}
+          </div>
         </div>
       </div>
 
-      {/* Prova Details & Grid */}
-      {selectedCompetenza && (
+      {selectedCompetenze.length > 0 && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           <div className="bg-surface-container-lowest p-6 rounded-3xl border border-surface-variant flex flex-col md:flex-row gap-6 shadow-sm">
              <div className="flex-1 space-y-2">
@@ -217,61 +251,69 @@ export default function RegistroVoti() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-surface-variant text-sm text-slate-500">
-                    <th className="py-5 px-6 font-bold uppercase tracking-wider">Studente</th>
-                    <th className="py-5 px-6 font-bold uppercase tracking-wider text-center">Stato PFI</th>
-                    <th className="py-5 px-6 font-bold uppercase tracking-wider text-center">Voto Numerico</th>
-                    <th className="py-5 px-6 font-bold uppercase tracking-wider text-center">Livello</th>
+                    <th className="py-5 px-6 font-bold uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Studente</th>
+                    {selectedCompetenze.map(id => {
+                       const comp = competenze.find(c => c.id === id);
+                       return (
+                         <th key={id} className="py-5 px-6 font-black uppercase tracking-widest text-center border-l border-slate-200 min-w-[200px] bg-slate-100/50">
+                           <div className="text-primary mb-1">{comp?.codice}</div>
+                           <div className="flex justify-around text-[10px] text-slate-400">
+                             <span>Voto Num.</span>
+                             <span>Livello</span>
+                           </div>
+                         </th>
+                       )
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-variant">
-                  {studenti.map(({ studente, pfi }) => {
-                    const hasCredit = pfi?.crediti_riconosciuti;
-                    return (
-                      <tr key={studente.id} className={`transition-colors hover:bg-slate-50/50 ${hasCredit ? 'bg-surface-variant/30 opacity-70' : ''}`}>
-                        <td className="py-4 px-6">
-                           <div className="font-bold text-lg text-on-surface">{studente.cognome} {studente.nome}</div>
-                           <div className="text-sm text-slate-500 font-medium">Mat: {studente.matricola}</div>
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          {hasCredit ? (
-                            <span className="inline-flex items-center gap-1.5 bg-secondary-container text-secondary px-3 py-1.5 rounded-lg text-xs font-bold tracking-widest uppercase">
-                              <span className="material-symbols-outlined text-[14px]">verified</span>
-                              Credito Riconosciuto
-                            </span>
-                          ) : (
-                            <span className="text-sm font-medium text-slate-500">
-                              {pfi?.ore_previste != null ? `${pfi.ore_previste} ore previste` : 'Ore non definite'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          <input 
-                            type="number"
-                            disabled={hasCredit}
-                            value={votiInput[studente.id]?.voto_numerico || ''}
-                            onChange={(e) => handleGradesChange(studente.id, 'voto_numerico', e.target.value)}
-                            placeholder="-"
-                            className="w-20 text-center font-bold text-lg py-2.5 bg-surface-container border border-outline-variant rounded-xl focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                           <select
-                              disabled={hasCredit}
-                              value={votiInput[studente.id]?.livello || ''}
-                              onChange={(e) => handleGradesChange(studente.id, 'livello', e.target.value)}
-                              className="font-bold text-base py-3 px-4 bg-surface-container border border-outline-variant rounded-xl focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                           >
-                              <option value="">- N/A -</option>
-                              <option value="A">A - Avanzato</option>
-                              <option value="B">B - Intermedio</option>
-                              <option value="C">C - Base</option>
-                              <option value="D">D - Iniziale</option>
-
-                           </select>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {studenti.map(({ studente, pfis }) => (
+                    <tr key={studente.id} className="transition-colors hover:bg-slate-50/50 group">
+                      <td className="py-4 px-6 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                         <div className="font-bold text-on-surface">{studente.cognome} {studente.nome}</div>
+                         <div className="text-[11px] text-slate-400 font-medium">Mat: {studente.matricola}</div>
+                      </td>
+                      
+                      {selectedCompetenze.map(compId => {
+                        const pfiForComp = pfis?.find((p: any) => p.competenza_id === compId);
+                        const hasCredit = pfiForComp?.crediti_riconosciuti;
+                        
+                        return (
+                          <td key={compId} className={`py-4 px-6 text-center border-l border-slate-50 ${hasCredit ? 'bg-secondary/5 opacity-80' : ''}`}>
+                            {hasCredit ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="bg-secondary/10 text-secondary px-2 py-1 rounded text-[9px] font-black uppercase tracking-tighter border border-secondary/20">
+                                  Credito Riconosciuto
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-bold italic">Cattedra salta</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-2">
+                                <input 
+                                  type="number"
+                                  value={votiInput[studente.id]?.[compId]?.voto_numerico || ''}
+                                  onChange={(e) => handleGradesChange(studente.id, compId, 'voto_numerico', e.target.value)}
+                                  placeholder="Voto"
+                                  className="w-14 text-center font-bold text-sm py-2 bg-surface-container border border-outline-variant rounded-lg focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                                />
+                                <select
+                                  value={votiInput[studente.id]?.[compId]?.livello || ''}
+                                  onChange={(e) => handleGradesChange(studente.id, compId, 'livello', e.target.value)}
+                                  className="font-bold text-xs py-2 px-2 bg-surface-container border border-outline-variant rounded-lg focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                                >
+                                  <option value="">-</option>
+                                  <option value="A">A</option>
+                                  <option value="B">B</option>
+                                  <option value="C">C</option>
+                                  <option value="D">D</option>
+                                </select>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
