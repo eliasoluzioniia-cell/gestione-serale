@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Session } from '@supabase/supabase-js';
+import type { Session } from '../lib/api';
 import { getProveDiRealtaConValutazioni, deleteProvaDiRealta } from '../lib/supabase_api';
 import EditProvaModal from '../components/EditProvaModal';
 
@@ -24,7 +24,8 @@ export default function Tabellone({ session }: TabelloneProps) {
   const [selectedProva, setSelectedProva] = useState<any | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase();
+  // Con Neon, il ruolo è in session.user.ruolo
+  const role = (session?.user?.ruolo || (session?.user as any)?.user_metadata?.role || 'studente').toLowerCase();
   const isAdminOrTutor = role === 'admin' || role === 'tutor';
 
   useEffect(() => {
@@ -36,8 +37,8 @@ export default function Tabellone({ session }: TabelloneProps) {
       if (role === 'docente') {
         const { data: doc } = await supabase
           .from('docenti')
-          .select('id, utente:utenti!inner(auth_id)')
-          .eq('utente.auth_id', session?.user?.id)
+          .select('id,utente_id')
+          .eq('utente_id', session?.user?.id)
           .maybeSingle();
         if (doc) setDocenteId(doc.id);
       }
@@ -63,7 +64,7 @@ export default function Tabellone({ session }: TabelloneProps) {
         subQuery = subQuery.eq('docente_id', docenteId);
       }
       const { data: subData } = await subQuery;
-      const uniqueSubjects = Array.from(new Set((subData || []).map(s => JSON.stringify(s.materie)))).map(s => JSON.parse(s));
+      const uniqueSubjects = Array.from(new Set((subData || []).map((s: any) => JSON.stringify(s.materie)))).map((s: any) => JSON.parse(s as string));
       setSubjects(uniqueSubjects);
 
       // 3. Archivio Prove (Gestione)

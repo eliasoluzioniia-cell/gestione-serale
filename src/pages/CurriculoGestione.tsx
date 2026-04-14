@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { Session } from '../lib/api';
 import { supabase } from '../lib/supabase_api';
 import type { Indirizzo, Classe } from '../types';
 import ImportCurriculoModal from '../components/ImportCurriculoModal';
 
 export default function CurriculoGestione({ session }: { session?: Session | null }) {
 
-  const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase()
+  const role = (session?.user?.ruolo || (session?.user as any)?.user_metadata?.role || 'studente').toLowerCase()
   const isDocente = role === 'docente'
   // Filters
   const [indirizzi, setIndirizzi] = useState<Indirizzo[]>([]);

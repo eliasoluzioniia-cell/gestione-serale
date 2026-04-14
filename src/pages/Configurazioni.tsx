@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import type { Session } from '@supabase/supabase-js'
+import { supabase } from '../lib/api'
+import type { Session } from '../lib/api'
 import type { Scuola, Indirizzo, AnnoScolastico } from '../types'
 import { 
   GraduationCap, 
@@ -18,7 +18,7 @@ import {
 type Tab = 'istituto' | 'indirizzi' | 'anni'
 
 export default function Configurazioni({ session }: { session?: Session | null }) {
-  const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase()
+  const role = (session?.user?.ruolo || (session?.user as any)?.user_metadata?.role || 'studente').toLowerCase()
   const isDocente = role === 'docente'
   const [activeTab, setActiveTab] = useState<Tab>('istituto')
   const [loading, setLoading] = useState(true)
@@ -39,18 +39,28 @@ export default function Configurazioni({ session }: { session?: Session | null }
     setLoading(true)
     setError(null)
     try {
-      const { data: scData, error: scErr } = await supabase.from('scuole').select('*').limit(1)
-      const { data: indData, error: indErr } = await supabase.from('indirizzi').select('*').order('nome')
-      const { data: anniData, error: anniErr } = await supabase.from('anni_scolastici').select('*').order('anno', { ascending: false })
+    const scResult = supabase.from('scuole').select('*').limit(1);
+    const indResult = supabase.from('indirizzi').select('*').order('nome');
+    const anniResult = supabase.from('anni_scolastici').select('*').order('anno', { ascending: false });
+
+    const [scData, indData, anniData] = await Promise.all([
+      scResult,
+      indResult,
+      anniResult,
+    ]);
+
+    const scErr = (scData as any)?.error;
+    const indErr = (indData as any)?.error;
+    const anniErr = (anniData as any)?.error;
 
       if (scErr) console.error("Errore fetch scuole:", scErr)
       if (indErr) console.error("Errore fetch indirizzi:", indErr)
       if (anniErr) console.error("Errore fetch anni:", anniErr)
 
       // Se non c'è una scuola, creiamo un oggetto locale vuoto per l'input
-      setScuola(scData?.[0] || { id: '', nome: '' })
-      setIndirizzi(indData || [])
-      setAnni(anniData || [])
+      setScuola((scData as any)?.data?.[0] || { id: '', nome: '' })
+      setIndirizzi((indData as any)?.data || [])
+      setAnni((anniData as any)?.data || [])
 
       if (scErr || indErr || anniErr) {
         setError("Si è verificato un errore nel recupero di alcuni dati. Controlla la console.")
@@ -76,20 +86,27 @@ export default function Configurazioni({ session }: { session?: Session | null }
     setSaving(true)
     setError(null)
 
-    const isNew = !scuola.id
-    const query = isNew 
-      ? supabase.from('scuole').insert([{ nome: scuola.nome }]).select()
-      : supabase.from('scuole').update({ nome: scuola.nome }).eq('id', scuola.id).select()
-
-    const { data: savedData, error } = await query
-    
-    if (error) {
-      setError(error.message)
+    const token = localStorage.getItem('neon_auth_token');
+    const isNew = !scuola.id;
+    let savedFirstRecord: any = null;
+    if (isNew) {
+      const res = await fetch('/api/data/scuole', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ nome: scuola.nome }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error); setSaving(false); return; }
+      savedFirstRecord = d;
     } else {
-      setSuccess(isNew ? "Istituto creato con successo!" : "Nome istituto aggiornato!")
-      if (savedData?.[0]) setScuola(savedData[0])
-      fetchData()
+      const res = await fetch(`/api/data/scuole?id=${scuola.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ nome: scuola.nome }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error); setSaving(false); return; }
     }
+    setSuccess(isNew ? "Istituto creato con successo!" : "Nome istituto aggiornato!")
+    if (savedFirstRecord) setScuola(savedFirstRecord)
     setSaving(false)
     setTimeout(() => setSuccess(null), 3000)
   }
@@ -107,21 +124,23 @@ export default function Configurazioni({ session }: { session?: Session | null }
     setSaving(true)
     setError(null)
     
-    const payload = {
-      nome: editingIndirizzo.nome,
-      scuola_id: scuola.id
+    const token = localStorage.getItem('neon_auth_token');
+    const payload = { nome: editingIndirizzo.nome, scuola_id: scuola.id };
+    let res: Response;
+    if (editingIndirizzo.id) {
+      res = await fetch(`/api/data/indirizzi?id=${editingIndirizzo.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch('/api/data/indirizzi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
     }
-
-    const { error } = editingIndirizzo.id 
-      ? await supabase.from('indirizzi').update(payload).eq('id', editingIndirizzo.id) 
-      : await supabase.from('indirizzi').insert([payload])
-
-    if (error) setError(error.message)
-    else {
-      setEditingIndirizzo(null)
-      fetchData()
-      setSuccess("Indirizzo salvato!")
-    }
+    const d = await res.json();
+    if (!res.ok) setError(d.error || 'Errore salvataggio')
+    else { setEditingIndirizzo(null); fetchData(); setSuccess("Indirizzo salvato!") }
     setSaving(false)
     setTimeout(() => setSuccess(null), 2000)
   }
@@ -129,9 +148,12 @@ export default function Configurazioni({ session }: { session?: Session | null }
   const handleDeleteIndirizzo = async (id: string) => {
     if (!id) return
     if (!confirm("Sei sicuro? Se ci sono classi associate a questo indirizzo, l'operazione fallirà.")) return
-    const { error } = await supabase.from('indirizzi').delete().eq('id', id)
-    if (error) setError("Errore eliminazione: " + error.message)
-    else fetchData()
+    const token = localStorage.getItem('neon_auth_token');
+    const res = await fetch(`/api/data/indirizzi?id=${id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { const d = await res.json(); setError("Errore eliminazione: " + d.error); }
+    else fetchData();
   }
 
   // --- Anni Scolastici ---
@@ -141,27 +163,24 @@ export default function Configurazioni({ session }: { session?: Session | null }
     setSaving(true)
     setError(null)
 
-    const payload = {
-      anno: editingAnno.anno,
-      is_corrente: editingAnno.is_corrente || false
-    }
 
-    const { error, data: savedData } = editingAnno.id 
-      ? await supabase.from('anni_scolastici').update(payload).eq('id', editingAnno.id).select()
-      : await supabase.from('anni_scolastici').insert([payload]).select()
-
-    if (error) setError(error.message)
-    else {
-      if (payload.is_corrente) {
-          const currentId = savedData?.[0]?.id
-          if (currentId) {
-             await supabase.from('anni_scolastici').update({ is_corrente: false }).neq('id', currentId)
-          }
-      }
-      setEditingAnno(null)
-      fetchData()
-      setSuccess("Anno scolastico salvato!")
+    const token = localStorage.getItem('neon_auth_token');
+    const annoPayload: any = { anno: editingAnno.anno, attivo: editingAnno.is_corrente || false };
+    let annoRes: Response;
+    if (editingAnno.id) {
+      annoRes = await fetch(`/api/data/anni_scolastici?id=${editingAnno.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(annoPayload),
+      });
+    } else {
+      annoRes = await fetch('/api/data/anni_scolastici', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(annoPayload),
+      });
     }
+    const annoData = await annoRes.json();
+    if (!annoRes.ok) setError(annoData.error || 'Errore salvataggio')
+    else { setEditingAnno(null); fetchData(); setSuccess("Anno scolastico salvato!") }
     setSaving(false)
     setTimeout(() => setSuccess(null), 2000)
   }
@@ -170,19 +189,29 @@ export default function Configurazioni({ session }: { session?: Session | null }
     if (!anno.id) return
     setSaving(true)
     setError(null)
-    await supabase.from('anni_scolastici').update({ is_corrente: false }).neq('id', '00000000-0000-4000-a000-000000000000')
-    const { error } = await supabase.from('anni_scolastici').update({ is_corrente: true }).eq('id', anno.id)
-    if (error) setError(error.message)
-    else fetchData()
+    // Imposta tutti gli altri anni come non correnti, poi imposta quello selezionato
+    const token = localStorage.getItem('neon_auth_token');
+    // Usa SQL diretto via endpoint dedicato
+    const res = await fetch(`/api/data/anni_scolastici?id=${anno.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ attivo: true }),
+    });
+    const d = await res.json();
+    if (!res.ok) setError(d.error)
+    else fetchData();
     setSaving(false)
   }
 
   const handleDeleteAnno = async (id: string) => {
     if (!id) return
     if (!confirm("Sei sicuro? Se ci sono classi associate a questo anno, l'operazione fallirà.")) return
-    const { error } = await supabase.from('anni_scolastici').delete().eq('id', id)
-    if (error) setError("Errore eliminazione: " + error.message)
-    else fetchData()
+    const token = localStorage.getItem('neon_auth_token');
+    const res = await fetch(`/api/data/anni_scolastici?id=${id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { const d = await res.json(); setError("Errore eliminazione: " + d.error); }
+    else fetchData();
   }
 
   if (loading) return (

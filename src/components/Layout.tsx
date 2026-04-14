@@ -1,15 +1,16 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function Layout({ session }: { session: any }) {
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await api.auth.signOut()
     navigate('/login')
   }
 
-  const role = (session.user.user_metadata?.role || 'studente').toLowerCase()
+  // Con Neon, il ruolo è in session.user.ruolo (non più in user_metadata)
+  const role = (session.user.ruolo || session.user.user_metadata?.role || 'studente').toLowerCase()
   const email = session.user.email
 
   return (

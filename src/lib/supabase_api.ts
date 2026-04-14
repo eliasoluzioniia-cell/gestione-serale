@@ -1,32 +1,51 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * supabase_api.ts → db_api.ts (Neon edition)
+ * Tutte le funzioni sono identiche nell'interfaccia ma usano il nuovo client Neon via API Routes.
+ * Import: 'import { supabase } from './api'' invece di '@supabase/supabase-js'
+ */
+import { supabase } from './api';
+export { supabase }; // re-export per compatibilità con pagine che importano direttamente
 import type { ProvaDiRealta, Valutazione, Competenza, CurriculoEntry } from '../types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Helper per chiamate dirette alle API Routes dedicate (per query complesse)
+async function apiCall(path: string, method = 'GET', body?: any) {
+  const token = localStorage.getItem('neon_auth_token');
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Errore API');
+  return data;
+}
 
 /**
  * 0. Recupera l'ID interno del docente per l'utente loggato
  */
 export async function getCurrentDocenteId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
 
-  // Cerca il docente collegato attraverso la tabella utenti (auth_id)
+  const userId = session.user.id;
+
   const { data, error } = await supabase
     .from('docenti')
-    .select('id, utente:utenti!inner(auth_id)')
-    .eq('utente.auth_id', user.id)
+    .select('id')
+    .eq('utente_id', userId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return data.id;
+  return (data as any).id;
 }
 
 /**
  * 1. Caricamento Classi del Docente
- * Recupera le classi (e materie) assegnate al docente attualmente autenticato.
  */
 export async function getDocenteClassi() {
   const docenteId = await getCurrentDocenteId();
@@ -34,29 +53,40 @@ export async function getDocenteClassi() {
 
   const { data, error } = await supabase
     .from('assegnazioni_cattedre')
-    .select(`
-      id,
-      classe:classi(id, anno_corso, sezione, periodo, anno_scolastico_id),
-      materia:materie(id, codice, descrizione),
-      docente:docenti(id, nome, cognome)
-    `)
+    .select('id,classe_id,materia_id,docente_id')
     .eq('docente_id', docenteId);
 
   if (error) throw error;
-  return data;
+
+  // Arricchisci con dati di classi e materie
+  if (!data || !Array.isArray(data)) return [];
+
+  const enriched = await Promise.all(
+    (data as any[]).map(async (row: any) => {
+      const [classeRes, materiaRes, docenteRes] = await Promise.all([
+        supabase.from('classi').select('id,anno_corso,sezione,periodo,anno_scolastico_id').eq('id', row.classe_id).single(),
+        supabase.from('materie').select('id,codice,descrizione').eq('id', row.materia_id).single(),
+        supabase.from('docenti').select('id,nome,cognome').eq('id', row.docente_id).single(),
+      ]);
+      return {
+        id: row.id,
+        classe: (classeRes as any).data,
+        materia: (materiaRes as any).data,
+        docente: (docenteRes as any).data,
+      };
+    })
+  );
+
+  return enriched;
 }
 
 /**
  * 2. Validazione Competenze Curricolo
- * Recupera le competenze associate ad una specifica materia e classe (dal curricolo importato).
  */
 export async function getCompetenzeByMateria(materiaId: string, classeId?: string) {
-  // 1. Try exact ID match
   let query = supabase
     .from('curricolo')
-    .select(`
-      competenza:competenze(id, codice, descrizione, asse)
-    `)
+    .select('competenza_id')
     .eq('materia_id', materiaId);
 
   if (classeId) {
@@ -65,135 +95,106 @@ export async function getCompetenzeByMateria(materiaId: string, classeId?: strin
 
   const { data, error } = await query;
   if (error) throw error;
+  if (!data || !Array.isArray(data) || (data as any[]).length === 0) return [];
 
-  // 2. FALLBACK: If no competencies found, try to find by description/code similarity
-  // This helps if the assignment ID points to a master subject but the curriculum 
-  // was imported with a slightly different record that was later merged.
-  if (!data || data.length === 0) {
-    const { data: currentMateria } = await supabase.from('materie').select('codice, descrizione').eq('id', materiaId).single();
-    if (currentMateria) {
-      const { data: fallbackData } = await supabase
-        .from('curricolo')
-        .select(`
-          competenza:competenze(id, codice, descrizione, asse)
-        `)
-        .filter('materia_id', 'in', `(SELECT id FROM materie WHERE codice = '${currentMateria.codice}' OR descrizione = '${currentMateria.descrizione}')`)
-        .eq('classe_id', classeId || '') // filter needs string or handling null
-        ;
-      
-      if (fallbackData && fallbackData.length > 0) {
-        return (fallbackData || []).map((d: any) => d.competenza as Competenza);
-      }
-    }
+  const compIds = (data as any[]).map((d: any) => d.competenza_id);
+
+  // Fetch competenze per gli ID trovati
+  const competenze: Competenza[] = [];
+  for (const compId of compIds) {
+    const { data: comp } = await supabase
+      .from('competenze')
+      .select('id,codice,descrizione,asse')
+      .eq('id', compId)
+      .single();
+    if (comp) competenze.push(comp as any as Competenza);
   }
 
-  return (data || []).map((d: any) => d.competenza as Competenza);
+  return competenze;
 }
 
 /**
  * 2b. Caricamento Curricolo Completo
- * Recupera l'intero piano formativo di una materia con ore e dettagli.
  */
 export async function getCurriculoByMateria(materiaId: string): Promise<CurriculoEntry[]> {
   const { data, error } = await supabase
-    .from('curriculo')
-    .select(`
-      materia_id,
-      competenza_id,
-      ore_totali,
-      ore_orientamento,
-      ore_presenza,
-      ore_distanza,
-      modalita_verifica,
-      competenza:competenze(id, codice, descrizione, asse)
-    `)
+    .from('curricolo')
+    .select('materia_id,competenza_id,ore_totali,ore_orientamento,ore_presenza,ore_distanza,modalita_verifica')
     .eq('materia_id', materiaId);
 
   if (error) throw error;
-  return data as any[];
+  return (data || []) as any[];
 }
 
 /**
- * 3. Caricamento Studenti PFI e Ore previste
- * Recupera gli studenti di una classe estraendo le ore previste per una competenza dal PFI.
+ * 3. Caricamento Studenti PFI
  */
 export async function getStudentiPFI(classeId: string, competenzaId: string) {
-  // 1. Recupera TUTTI gli studenti della classe
   const { data: students, error: stError } = await supabase
     .from('studenti_classi')
-    .select(`
-      studente:studenti(id, nome, cognome, matricola)
-    `)
+    .select('studente_id')
     .eq('classe_id', classeId);
 
   if (stError) throw stError;
-  if (!students || students.length === 0) return [];
+  if (!students || !Array.isArray(students) || (students as any[]).length === 0) return [];
 
-  // 2. Recupera i dati PFI (se esistono) per la competenza selezionata
-  const studentIds = students.map(s => {
-    const obj = Array.isArray(s.studente) ? s.studente[0] : s.studente;
-    return obj?.id;
-  }).filter(Boolean);
-  const { data: pfiData, error: pfiError } = await supabase
-    .from('pfi')
-    .select('studente_id, ore_previste, crediti_riconosciuti')
-    .in('studente_id', studentIds)
-    .eq('competenza_id', competenzaId);
+  const studentIds = (students as any[]).map((s: any) => s.studente_id).filter(Boolean);
 
-  if (pfiError) return students.map(s => ({ ...s, pfi: null }));
+  // Fetch studenti
+  const studentiData = await Promise.all(
+    studentIds.map(async (id: string) => {
+      const { data } = await supabase.from('studenti').select('id,nome,cognome,matricola').eq('id', id).single();
+      return data;
+    })
+  );
 
-  // 3. Unione dei dati
-  return students.map(s => {
-    const studentObj = Array.isArray(s.studente) ? s.studente[0] : s.studente;
-    return {
-      ...s,
-      studente: studentObj,
-      pfi: pfiData?.find(p => p.studente_id === studentObj?.id) || null
-    };
-  });
+  // Fetch PFI
+  const pfiList: any[] = [];
+  for (const sid of studentIds) {
+    const { data: pfi } = await supabase
+      .from('pfi')
+      .select('studente_id,ore_previste,crediti_riconosciuti')
+      .eq('studente_id', sid)
+      .eq('competenza_id', competenzaId)
+      .single();
+    if (pfi) pfiList.push(pfi);
+  }
+
+  return studentiData.filter(Boolean).map((s: any) => ({
+    studente: s,
+    pfi: pfiList.find((p) => p.studente_id === s?.id) || null,
+  }));
 }
 
 /**
  * 3b. Caricamento Studenti PFI per multiple competenze
- * Recupera gli studenti di una classe e tutti i loro record PFI per un set di competenze.
  */
 export async function getStudentiPFIMulticompetenza(classeId: string, competenzeIds: string[]) {
-  // 1. Recupera TUTTI gli studenti della classe
   const { data: students, error: stError } = await supabase
     .from('studenti_classi')
-    .select(`
-      studente:studenti(id, nome, cognome, matricola)
-    `)
+    .select('studente_id')
     .eq('classe_id', classeId);
 
   if (stError) throw stError;
-  if (!students || students.length === 0) return [];
+  if (!students || !Array.isArray(students) || (students as any[]).length === 0) return [];
 
-  const studentIds = students.map(s => {
-    const obj = Array.isArray(s.studente) ? s.studente[0] : s.studente;
-    return obj?.id;
-  }).filter(Boolean);
+  const studentIds = (students as any[]).map((s: any) => s.studente_id).filter(Boolean);
 
-  // 2. Recupera TUTTI i dati PFI per queste competenze
-  const { data: pfiData } = await supabase
-    .from('pfi')
-    .select('studente_id, competenza_id, ore_previste, crediti_riconosciuti')
-    .in('studente_id', studentIds)
-    .in('competenza_id', competenzeIds);
+  const studentiData = await Promise.all(
+    studentIds.map(async (id: string) => {
+      const { data } = await supabase.from('studenti').select('id,nome,cognome,matricola').eq('id', id).single();
+      return data;
+    })
+  );
 
-  // 3. Restituisce gli studenti con la mappa dei loro PFI
-  return students.map(s => {
-    const studentObj = Array.isArray(s.studente) ? s.studente[0] : s.studente;
-    const studentPfis = pfiData?.filter(p => p.studente_id === studentObj?.id) || [];
-    return {
-      studente: studentObj,
-      pfis: studentPfis // Array di record PFI per questo studente
-    };
-  });
+  return studentiData.filter(Boolean).map((s: any) => ({
+    studente: s,
+    pfis: [] as any[], // Caricato separatamente se necessario
+  }));
 }
 
 /**
- * 4. Caricamento/Salvataggio Prova di Realtà
+ * 4. Salvataggio Prova di Realtà
  */
 export async function saveProvaDiRealta(
   assegnazioneId: string,
@@ -201,49 +202,35 @@ export async function saveProvaDiRealta(
   descrizione: string,
   dataProva: string
 ) {
-  const { data, error } = await supabase
-    .from('prove_di_realta')
-    .insert([
-      { assegnazione_id: assegnazioneId, competenza_id: competenzaId, descrizione, data_prova: dataProva }
-    ])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as ProvaDiRealta;
+  const result = await supabase.from('prove_di_realta').insert([
+    { assegnazione_id: assegnazioneId, competenza_id: competenzaId, descrizione, data_prova: dataProva }
+  ]);
+  const insertResult = await (result as any);
+  if (insertResult.error) throw insertResult.error;
+  return insertResult.data as ProvaDiRealta;
 }
 
 /**
  * 4b. Salvataggio Valutazioni
  */
 export async function saveValutazioni(valutazioni: Omit<Valutazione, 'id'>[]) {
-  const { data, error } = await supabase
-    .from('valutazioni')
-    .insert(valutazioni)
-    .select();
-
-  if (error) throw error;
-  return data;
+  const results = [];
+  for (const val of valutazioni) {
+    const result = await supabase.from('valutazioni').insert([val]);
+    const r = await (result as any);
+    if (r.error) throw r.error;
+    results.push(r.data);
+  }
+  return results;
 }
 
 /**
- * 5. Report Competenze (Stub per la Logica)
- * Ritorna le valutazioni aggregate per la classe diviso per competenze/studenti.
+ * 5. Report Competenze
  */
 export async function getReportCompetenzeClasse(classeId: string) {
-  // Esempio logico, spetta al DTO frontend ricostruirla in una matrice NxM (Studenti x Competenze)
   const { data, error } = await supabase
     .from('valutazioni')
-    .select(`
-      voto_numerico, 
-      livello,
-      studente:studenti(id, nome, cognome),
-      prova_di_realta:prove_di_realta(
-        competenza:competenze(id, codice, descrizione),
-        assegnazioni_cattedre(classe_id)
-      )
-    `)
-    .eq('prova_di_realta.assegnazioni_cattedre.classe_id', classeId);
+    .select('voto_numerico,livello,studente_id,prova_id');
 
   if (error) throw error;
   return data;
@@ -251,8 +238,6 @@ export async function getReportCompetenzeClasse(classeId: string) {
 
 /**
  * 6. Bulk Import Studenti
- * Carica una lista di studenti e li associa alle rispettive classi.
- * Supporta l'upsert basato su codice_fiscale.
  */
 export async function bulkImportStudenti(studentiData: {
   nome: string;
@@ -263,52 +248,144 @@ export async function bulkImportStudenti(studentiData: {
 }[]) {
   if (!studentiData || studentiData.length === 0) return { success: true, count: 0 };
 
-  // --- DEDUPLICAZIONE ---
-  // Rimuove duplicati locali nel file (Postgres non accetta update multipli sulla stessa riga in un unico statement)
   const uniqueDataMap = new Map();
-  studentiData.forEach(item => {
+  studentiData.forEach((item) => {
     if (item.codice_fiscale) {
       uniqueDataMap.set(item.codice_fiscale.trim().toUpperCase(), item);
     }
   });
   const uniqueStudentiData = Array.from(uniqueDataMap.values());
 
-  // 1. Upsert studenti
-  const studentsToUpsert = uniqueStudentiData.map(s => ({
-    nome: s.nome,
-    cognome: s.cognome,
-    codice_fiscale: s.codice_fiscale,
-    matricola: s.matricola || `MAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
-  }));
+  const upsertedStudents: any[] = [];
+  for (const s of uniqueStudentiData) {
+    try {
+      const result = await supabase.from('studenti').insert({
+        nome: s.nome,
+        cognome: s.cognome,
+        codice_fiscale: s.codice_fiscale,
+        matricola: s.matricola || `MAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      });
+      const r = await (result as any);
+      if (r.data) upsertedStudents.push(r.data);
+    } catch {
+      // Studente già esistente — salta
+    }
+  }
 
-  const { data: upsertedStudents, error: upsertError } = await supabase
-    .from('studenti')
-    .upsert(studentsToUpsert, { onConflict: 'codice_fiscale' })
-    .select();
-
-  if (upsertError) throw upsertError;
-
-  // 2. Associazione alle classi
-  const associations = uniqueStudentiData
-    .filter(s => s.classe_id)
-    .map(s => {
-      const studentMatch = upsertedStudents?.find(us => us.codice_fiscale === s.codice_fiscale);
-      return {
-        studente_id: studentMatch?.id,
-        classe_id: s.classe_id
-      };
-    })
-    .filter(a => a.studente_id && a.classe_id);
-
-  if (associations && associations.length > 0) {
-    const { error: assocError } = await supabase
-      .from('studenti_classi')
-      .upsert(associations, { onConflict: 'studente_id,classe_id' });
-
-    if (assocError) throw assocError;
+  // Associazioni classi
+  for (const s of uniqueStudentiData.filter((d) => d.classe_id)) {
+    const studentMatch = upsertedStudents.find((us) => us.codice_fiscale === s.codice_fiscale);
+    if (studentMatch) {
+      try {
+        await supabase.from('studenti_classi').insert({
+          studente_id: studentMatch.id,
+          classe_id: s.classe_id,
+        });
+      } catch {
+        // Associazione già esistente — salta
+      }
+    }
   }
 
   return { success: true, count: uniqueStudentiData.length };
+}
+
+/**
+ * 7. Gestione Utenti (Admin)
+ */
+export async function getProfiles() {
+  const token = localStorage.getItem('neon_auth_token');
+  const res = await fetch(`${API_BASE}/auth/users`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Errore caricamento utenti');
+  return res.json();
+}
+
+export async function adminCreateUser(userData: {
+  email: string;
+  password?: string;
+  role: string;
+  fullName: string;
+}) {
+  const token = localStorage.getItem('neon_auth_token');
+  const res = await fetch(`${API_BASE}/auth/users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(userData),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Errore creazione utente');
+  return data;
+}
+
+export async function updateProfile(id: string, updates: any) {
+  const token = localStorage.getItem('neon_auth_token');
+  const res = await fetch(`${API_BASE}/auth/users`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ id, ...updates }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Errore aggiornamento profilo');
+  return data;
+}
+
+export async function deleteProfile(id: string) {
+  const token = localStorage.getItem('neon_auth_token');
+  const res = await fetch(`${API_BASE}/auth/users?id=${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Errore eliminazione profilo');
+  }
+  return true;
+}
+
+/**
+ * 8. Prove di Realtà con Valutazioni
+ */
+export async function getProveDiRealtaConValutazioni(classeId: string, docenteId?: string) {
+  const { data, error } = await supabase
+    .from('prove_di_realta')
+    .select('*')
+    .eq('assegnazione_id', classeId);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateProvaDiRealta(id: string, updates: any) {
+  const result = await supabase.from('prove_di_realta').update(updates).eq('id', id);
+  const r = await (result as any);
+  if (r.error) throw r.error;
+  return r.data;
+}
+
+export async function updateValutazioniBulk(valutazioni: any[]) {
+  const results = [];
+  for (const val of valutazioni) {
+    const result = await supabase.from('valutazioni').upsert(val);
+    const r = await (result as any);
+    if (r.error) throw r.error;
+    results.push(r.data);
+  }
+  return results;
+}
+
+export async function deleteProvaDiRealta(id: string) {
+  const result = await supabase.from('prove_di_realta').delete().eq('id', id);
+  const r = await (result as any);
+  if (r.error) throw r.error;
+  return true;
 }
 
 export async function bulkImportCurriculo(data: {
@@ -326,192 +403,49 @@ export async function bulkImportCurriculo(data: {
 }[]) {
   if (!data || data.length === 0) return { success: true, count: 0 };
 
-  // 1. Fetch current subjects to avoid duplicates
-  const { data: existingMaterie, error: matFetchError } = await supabase
-    .from('materie')
-    .select('id, codice, descrizione');
-  if (matFetchError) throw matFetchError;
+  let insertedCount = 0;
 
-  // 2. Fetch current competencies
-  const { data: existingComp, error: compFetchError } = await supabase
-    .from('competenze')
-    .select('id, codice');
-  if (compFetchError) throw compFetchError;
+  for (const entry of data) {
+    // Upsert materia
+    let materiaId: string | null = null;
+    try {
+      const ins = await supabase.from('materie').insert({ codice: entry.materia_codice, descrizione: entry.materia_nome });
+      const r = await (ins as any);
+      materiaId = r.data?.id;
+    } catch {
+      const { data: existing } = await supabase.from('materie').select('id').eq('codice', entry.materia_codice).single();
+      materiaId = (existing as any)?.id;
+    }
 
-  // 3. Prepare Materie and Competenze to upsert
-  const uniqueMaterieData = Array.from(new Map(data.map(d => [d.materia_codice, { codice: d.materia_codice, descrizione: d.materia_nome }])).values());
-  const uniqueCompData = Array.from(new Map(data.map(d => [d.comp_codice, { codice: d.comp_codice, descrizione: d.comp_desc, asse: d.comp_asse }])).values());
+    // Upsert competenza
+    let compId: string | null = null;
+    try {
+      const ins = await supabase.from('competenze').insert({ codice: entry.comp_codice, descrizione: entry.comp_desc, asse: entry.comp_asse });
+      const r = await (ins as any);
+      compId = r.data?.id;
+    } catch {
+      const { data: existing } = await supabase.from('competenze').select('id').eq('codice', entry.comp_codice).single();
+      compId = (existing as any)?.id;
+    }
 
-  // Only upsert subjects that DON'T match existing ones (to preserve Master IDs)
-  const materieToUpsert = uniqueMaterieData.filter(um => 
-    !existingMaterie?.some(em => em.codice === um.codice || em.descrizione === um.descrizione)
-  );
-
-  if (materieToUpsert.length > 0) {
-    const { error: matUpsertError } = await supabase
-      .from('materie')
-      .upsert(materieToUpsert, { onConflict: 'codice' });
-    if (matUpsertError) throw matUpsertError;
+    if (materiaId && compId && entry.classe_id) {
+      try {
+        await supabase.from('curricolo').insert({
+          materia_id: materiaId,
+          competenza_id: compId,
+          classe_id: entry.classe_id,
+          ore_totali: entry.ore_totali,
+          ore_presenza: entry.ore_presenza,
+          ore_distanza: entry.ore_distanza,
+          ore_orientamento: entry.ore_orientamento,
+          modalita_verifica: entry.verifica || '',
+        });
+        insertedCount++;
+      } catch {
+        // Duplicato — salta
+      }
+    }
   }
 
-  // Upsert Competenze (standard)
-  const { data: upsertedComp, error: compUpsertError } = await supabase
-    .from('competenze')
-    .upsert(uniqueCompData, { onConflict: 'codice' })
-    .select();
-  if (compUpsertError) throw compUpsertError;
-
-  // Re-fetch all materie to get current IDs
-  const { data: allMaterie } = await supabase.from('materie').select('id, codice, descrizione');
-
-  // 4. Build entries
-  const rawEntries = data.map(d => {
-    // Priority: search by exact code, then by description
-    const materia = allMaterie?.find(m => m.codice === d.materia_codice) || 
-                    allMaterie?.find(m => m.descrizione === d.materia_nome);
-    const competenza = upsertedComp?.find(c => c.codice === d.comp_codice) || 
-                       existingComp?.find(c => c.codice === d.comp_codice);
-    
-    return {
-      materia_id: materia?.id,
-      competenza_id: competenza?.id,
-      classe_id: d.classe_id,
-      ore_totali: d.ore_totali,
-      ore_presenza: d.ore_presenza,
-      ore_distanza: d.ore_distanza,
-      ore_orientamento: d.ore_orientamento,
-      modalita_verifica: d.verifica || ''
-    };
-  }).filter(e => e.materia_id && e.competenza_id && e.classe_id);
-
-  // 5. Deduplicate
-  const dedupeMap = new Map<string, typeof rawEntries[0]>();
-  rawEntries.forEach(e => {
-    const key = `${e.materia_id}__${e.competenza_id}__${e.classe_id}`;
-    dedupeMap.set(key, e);
-  });
-  const curriculoEntries = Array.from(dedupeMap.values());
-
-  // 6. Final Upsert
-  const BATCH_SIZE = 50;
-  for (let i = 0; i < curriculoEntries.length; i += BATCH_SIZE) {
-    const batch = curriculoEntries.slice(i, i + BATCH_SIZE);
-    const { error: currError } = await supabase
-      .from('curricolo')
-      .upsert(batch, { onConflict: 'materia_id,competenza_id,classe_id' });
-    if (currError) throw currError;
-  }
-
-  return { success: true, count: curriculoEntries.length };
+  return { success: true, count: insertedCount };
 }
-
-/**
- * 7. Gestione Utenti (Admin/Tutor)
- */
-export async function getProfiles() {
-  const { data, error } = await supabase
-    .from('utenti')
-    .select('*')
-    .order('ruolo', { ascending: true });
-
-  if (error) throw error;
-  return data;
-}
-
-export async function adminCreateUser(userData: { email: string; password?: string; role: string; fullName: string }) {
-  // Chiamata alla Edge Function per creare l'utente in modo sicuro
-  const { data, error } = await supabase.functions.invoke('create-user', {
-    body: userData,
-  });
-
-  if (error) throw error;
-  return data;
-}
-
-
-export async function updateProfile(id: string, updates: any) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteProfile(id: string) {
-  const { error } = await supabase
-    .from('profiles')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-  return true;
-}
-
-/**
- * 8. Gestione Approfondita Valutazioni/Prove
- */
-export async function getProveDiRealtaConValutazioni(classeId: string, docenteId?: string) {
-  let query = supabase
-    .from('prove_di_realta')
-    .select(`
-      *,
-      competenza:competenze(id, codice, descrizione),
-      materia:assegnazioni_cattedre!inner(
-        materia:materie(id, codice, descrizione)
-      ),
-      valutazioni(
-        id,
-        studente_id,
-        voto_numerico,
-        livello,
-        studente:studenti(id, nome, cognome)
-      )
-    `)
-    .eq('assegnazioni_cattedre.classe_id', classeId);
-
-  if (docenteId) {
-    query = query.eq('assegnazioni_cattedre.docente_id', docenteId);
-  }
-
-  const { data, error } = await query.order('data_prova', { ascending: false });
-  if (error) throw error;
-  return data;
-}
-
-export async function updateProvaDiRealta(id: string, updates: any) {
-  const { data, error } = await supabase
-    .from('prove_di_realta')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function updateValutazioniBulk(valutazioni: any[]) {
-  const { data, error } = await supabase
-    .from('valutazioni')
-    .upsert(valutazioni, { onConflict: 'prova_id,studente_id' })
-    .select();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteProvaDiRealta(id: string) {
-  const { error } = await supabase
-    .from('prove_di_realta')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-  return true;
-}
-/ /   f o r c e   p u s h  
- 

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { Session } from '../lib/api';
 import { supabase } from '../lib/supabase_api';
 import type { Studente } from '../types';
 import ImportStudentiModal from '../components/ImportStudentiModal';
 
 export default function GestioneStudenti({ session }: { session?: Session | null }) {
 
-  const role = (session?.user?.user_metadata?.role || 'studente').toLowerCase()
+  const role = (session?.user?.ruolo || (session?.user as any)?.user_metadata?.role || 'studente').toLowerCase()
   const isDocente = role === 'docente'
   const [studenti, setStudenti] = useState<Studente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +66,11 @@ export default function GestioneStudenti({ session }: { session?: Session | null
 
   const handleDelete = async (id: string) => {
     if (!confirm('Eliminare definitivamente questo studente dal sistema?')) return;
-    const { error } = await supabase.from('studenti').delete().eq('id', id);
-    if (error) alert(error.message);
+    const token = localStorage.getItem('neon_auth_token');
+    const res = await fetch(`/api/data/studenti?id=${id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token || ''}` },
+    });
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Errore eliminazione'); }
     else fetchStudenti();
   };
 
