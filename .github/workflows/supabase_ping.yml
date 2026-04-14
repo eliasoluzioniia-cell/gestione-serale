@@ -22,11 +22,14 @@ jobs:
             process.exit(1);
           }
 
+          // Puliamo i segreti da eventuali spazi o ritorni a capo accidentali
           const url = process.env.SUPABASE_URL.trim().replace(/\/$/, '') + '/rest/v1/materie?select=id&limit=1';
+          const key = process.env.SUPABASE_ANON_KEY.trim();
+
           const options = {
             headers: {
-              'apikey': process.env.SUPABASE_ANON_KEY,
-              'Authorization': 'Bearer ' + process.env.SUPABASE_ANON_KEY
+              'apikey': key,
+              'Authorization': 'Bearer ' + key
             }
           };
 
