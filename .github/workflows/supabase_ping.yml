@@ -14,19 +14,17 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          # Verifica se le variabili sono vuote
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::SUPABASE_URL o SUPABASE_ANON_KEY non sono configurati nei Secrets del repository!"
+          # Pulisce la URL da eventuali spazi o slash finali
+          URL=$(echo "$SUPABASE_URL" | xargs | sed 's/\/$//')
+          
+          if [ -z "$URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL o SUPABASE_ANON_KEY non configurati correttamente!"
             exit 1
           fi
 
-          # Rimuove eventuale slash finale dalla URL per evitare //rest/v1
-          URL="${SUPABASE_URL%/}"
-          
-          echo "Tentativo di ping a: $URL/rest/v1/materie"
-          
-          # Esegue il ping e fallisce (-f) se il server risponde con errore
-          # Nota: lasciamo il backslash qui perché siamo dentro un blocco YAML 'run: |'
-          curl -f -i -X GET "$URL/rest/v1/materie?select=id&limit=1" \
-          -H "apikey: $SUPABASE_ANON_KEY" \
-          -H "Authorization: Bearer $SUPABASE_ANON_KEY"
+          echo "Ping in corso a: $URL"
+
+          # Esegue il ping su una singola riga senza backslash
+          # Usiamo -f per far fallire il job in caso di errore HTTP (es. 401, 404)
+          # Usiamo -i per vedere gli header nella console (utile per debug)
+          curl -f -i "${URL}/rest/v1/materie?select=id&limit=1" -H "apikey: ${SUPABASE_ANON_KEY}" -H "Authorization: Bearer ${SUPABASE_ANON_KEY}"
