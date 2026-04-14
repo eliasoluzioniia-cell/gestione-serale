@@ -9,22 +9,40 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase API
+      - name: Ping Supabase API (Node.js)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          # Pulisce la URL da eventuali spazi o slash finali
-          URL=$(echo "$SUPABASE_URL" | xargs | sed 's/\/$//')
+          node -e "
+          const https = require('https');
           
-          if [ -z "$URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::SUPABASE_URL o SUPABASE_ANON_KEY non configurati correttamente!"
-            exit 1
-          fi
+          if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+            console.error('::error::SUPABASE_URL o SUPABASE_ANON_KEY non configurati correttamente!');
+            process.exit(1);
+          }
 
-          echo "Ping in corso a: $URL"
+          const url = process.env.SUPABASE_URL.trim().replace(/\/$/, '') + '/rest/v1/materie?select=id&limit=1';
+          const options = {
+            headers: {
+              'apikey': process.env.SUPABASE_ANON_KEY,
+              'Authorization': 'Bearer ' + process.env.SUPABASE_ANON_KEY
+            }
+          };
 
-          # Esegue il ping su una singola riga senza backslash
-          # Usiamo -f per far fallire il job in caso di errore HTTP (es. 401, 404)
-          # Usiamo -i per vedere gli header nella console (utile per debug)
-          curl -f -i "${URL}/rest/v1/materie?select=id&limit=1" -H "apikey: ${SUPABASE_ANON_KEY}" -H "Authorization: Bearer ${SUPABASE_ANON_KEY}"
+          console.log('Sending ping to Supabase...');
+          
+          https.get(url, options, (res) => {
+            console.log('HTTP Status Code:', res.statusCode);
+            if (res.statusCode >= 200 && res.statusCode < 400) {
+              console.log('Success! Database is awake.');
+              process.exit(0);
+            } else {
+              console.error('Failure! Received error status:', res.statusCode);
+              process.exit(1);
+            }
+          }).on('error', (e) => {
+            console.error('Network Error:', e.message);
+            process.exit(1);
+          });
+          "
