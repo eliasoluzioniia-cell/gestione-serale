@@ -15,37 +15,47 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           node -e "
-          const https = require('https');
-          
-          if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-            console.error('::error::SUPABASE_URL o SUPABASE_ANON_KEY non configurati correttamente!');
-            process.exit(1);
-          }
-
-          // Puliamo i segreti da eventuali spazi o ritorni a capo accidentali
-          const url = process.env.SUPABASE_URL.trim().replace(/\/$/, '') + '/rest/v1/materie?select=id&limit=1';
-          const key = process.env.SUPABASE_ANON_KEY.trim();
-
-          const options = {
-            headers: {
-              'apikey': key,
-              'Authorization': 'Bearer ' + key
-            }
-          };
-
-          console.log('Sending ping to Supabase...');
-          
-          https.get(url, options, (res) => {
-            console.log('HTTP Status Code:', res.statusCode);
-            if (res.statusCode >= 200 && res.statusCode < 400) {
-              console.log('Success! Database is awake.');
-              process.exit(0);
-            } else {
-              console.error('Failure! Received error status:', res.statusCode);
+          async function run() {
+            // Aggressive sanitization: keep only base64url characters + dot (JWT standard)
+            // Even if the key has standard base64 (+, /, =), those are valid in headers, 
+            // but Supabase keys are usually base64url. 
+            // Here we allow Alphanumeric, dots, dashes, underscores.
+            const sanitize = (s) => (s || '').replace(/[^a-zA-Z0-9\.\-_]/g, '').trim();
+            const cleanUrl = (s) => (s || '').trim().replace(/\/+$/, '');
+            
+            const key = sanitize(process.env.SUPABASE_ANON_KEY);
+            const url = cleanUrl(process.env.SUPABASE_URL) + '/rest/v1/materie?select=id&limit=1';
+            
+            console.log('Target URL starts with:', url.substring(0, 30));
+            console.log('Analyzed Key length:', key.length);
+            
+            if (key.length < 50) {
+              console.error('::error::La SUPABASE_ANON_KEY sembra essere troppo corta o non valida dopo la pulizia!');
               process.exit(1);
             }
-          }).on('error', (e) => {
-            console.error('Network Error:', e.message);
-            process.exit(1);
-          });
+
+            try {
+              console.log('Sending request...');
+              const res = await fetch(url, {
+                headers: {
+                  'apikey': key,
+                  'Authorization': 'Bearer ' + key
+                }
+              });
+              
+              console.log('Response Status:', res.status, res.statusText);
+              
+              if (res.ok) {
+                console.log('Success! Database is awake.');
+                process.exit(0);
+              } else {
+                console.error('Ping failed with status:', res.status);
+                process.exit(1);
+              }
+            } catch (e) {
+              console.error('Network or Fetch Error:', e.message);
+              process.exit(1);
+            }
+          }
+          run();
           "
