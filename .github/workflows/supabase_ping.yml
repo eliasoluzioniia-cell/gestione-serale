@@ -4,6 +4,8 @@ on:
     # Esegue il ping ogni lunedì e giovedì alle 00:00
     - cron: '0 0 * * 1,4'
   workflow_dispatch: # Permette di avviarlo anche a mano
+  push:
+    branches: [main] # Permette l'avvio automatico al push per debug
 
 jobs:
   ping:
@@ -16,24 +18,30 @@ jobs:
         run: |
           node -e "
           async function run() {
-            // Remove only control characters (0-31) and non-ASCII (127-255).
-            // This preserves valid Base64 characters like +, / and =.
             const sanitize = (s) => (s || '').replace(/[\x00-\x1F\x7F-\xFF]/g, '').trim();
             const cleanUrl = (s) => (s || '').trim().replace(/\/+$/, '');
             
             const key = sanitize(process.env.SUPABASE_ANON_KEY);
-            const url = cleanUrl(process.env.SUPABASE_URL) + '/rest/v1/materie?select=id&limit=1';
+            const baseUrl = cleanUrl(process.env.SUPABASE_URL);
             
-            console.log('Target URL starts with:', url.substring(0, 30));
-            console.log('Analyzed Key length:', key.length);
+            // Pinging the root of the REST API is the most reliable way to wake up the DB
+            // without worrying about RLS policies or missing tables.
+            const url = baseUrl + '/rest/v1/';
+            
+            console.log('Target URL prefix:', baseUrl.substring(0, 30) + '...');
+            console.log('Key length:', key.length);
+            // Safe debug: show only first 4 chars to verify key presence/correctness
+            if (key.length > 4) {
+              console.log('Key prefix check:', key.substring(0, 4) + '...');
+            }
             
             if (key.length < 10) {
-              console.error('::error::La chiave API è vuota o troppo corta dopo la pulizia!');
+              console.error('::error::La chiave API è vuota o troppo corta!');
               process.exit(1);
             }
 
             try {
-              console.log('Sending request...');
+              console.log('Sending Keep-Alive ping to REST root...');
               const res = await fetch(url, {
                 headers: {
                   'apikey': key,
@@ -44,13 +52,11 @@ jobs:
               console.log('Response Status:', res.status, res.statusText);
               
               if (res.ok) {
-                console.log('Success! Database is awake.');
+                console.log('Success! Supabase is awake.');
                 process.exit(0);
               } else {
                 console.error('Ping failed with status:', res.status);
-                // If 404, suggest checking table name. If 401, suggest checking Key.
-                if (res.status === 404) console.log('Tip: Check if table \"materie\" exists in your Supabase REST API.');
-                if (res.status === 401) console.log('Tip: This usually means the ANON_KEY is incorrect or expired.');
+                // 401: Key issue, 404: URL issue
                 process.exit(1);
               }
             } catch (e) {
