@@ -10,8 +10,7 @@ import { neon } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const sql = neon(process.env.DATABASE_URL!);
-const JWT_SECRET = process.env.JWT_SECRET!;
+// Rimossi top-level per evitare crash all'avvio se mancano variabili d'ambiente
 
 interface JwtPayload {
   sub: string;
@@ -20,11 +19,11 @@ interface JwtPayload {
   ruolo: string;
 }
 
-function verifyToken(req: VercelRequest): JwtPayload | null {
+function verifyToken(req: VercelRequest, secret: string): JwtPayload | null {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) return null;
   try {
-    return jwt.verify(authHeader.slice(7), JWT_SECRET) as JwtPayload;
+    return jwt.verify(authHeader.slice(7), secret) as JwtPayload;
   } catch {
     return null;
   }
@@ -49,8 +48,15 @@ const ALLOWED_TABLES = new Set([
 ]);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!process.env.DATABASE_URL || !process.env.JWT_SECRET) {
+    console.error('[Config Error] Missing environment variables DATABASE_URL or JWT_SECRET');
+    return res.status(500).json({ error: 'Configurazione del database mancante sul server. Verifica le variabili d\'ambiente su Vercel.' });
+  }
+
+  const sql = neon(process.env.DATABASE_URL!);
+  const JWT_SECRET = process.env.JWT_SECRET!;
   // Verifica autenticazione
-  const user = verifyToken(req);
+  const user = verifyToken(req, JWT_SECRET);
   if (!user) {
     return res.status(401).json({ error: 'Non autenticato' });
   }

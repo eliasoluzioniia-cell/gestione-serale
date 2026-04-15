@@ -3,10 +3,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const sql = neon(process.env.DATABASE_URL!);
-const JWT_SECRET = process.env.JWT_SECRET!;
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!process.env.DATABASE_URL || !process.env.JWT_SECRET) {
+    console.error('[Config Error] Missing environment variables DATABASE_URL or JWT_SECRET');
+    return res.status(500).json({ error: 'Configurazione del database mancante sul server. Verifica le variabili d\'ambiente su Vercel.' });
+  }
+
+  const sql = neon(process.env.DATABASE_URL!);
+  const JWT_SECRET = process.env.JWT_SECRET!;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
