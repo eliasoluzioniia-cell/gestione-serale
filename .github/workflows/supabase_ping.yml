@@ -34,10 +34,10 @@ jobs:
             }
 
             const sanitize = (s) => s.replace(/[\x00-\x1F\x7F-\xFF]/g, '').trim();
-            const url = rawUrl.replace(/\/+$/, '') + '/rest/v1/';
+            const url = rawUrl.replace(/\/+$/, '') + '/rest/v1/?select=1';
             const key = sanitize(rawKey);
 
-            console.log('Target URL prefix:', url.substring(0, 30) + '...');
+            console.log('Target URL:', url);
             console.log('Key length:', key.length);
             if (key.length > 4) console.log('Key prefix check:', key.substring(0, 4) + '...');
 
