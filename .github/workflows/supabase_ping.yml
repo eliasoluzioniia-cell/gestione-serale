@@ -13,40 +13,38 @@ jobs:
     steps:
       - name: Ping Supabase API (Node.js)
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # We try both possible naming conventions to be safe
+          URL_1: ${{ secrets.SUPABASE_URL }}
+          URL_2: ${{ secrets.VITE_SUPABASE_URL }}
+          KEY_1: ${{ secrets.SUPABASE_ANON_KEY }}
+          KEY_2: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           node -e "
           async function run() {
-            const sanitize = (s) => (s || '').replace(/[\x00-\x1F\x7F-\xFF]/g, '').trim();
-            const cleanUrl = (s) => (s || '').trim().replace(/\/+$/, '');
-            
-            const key = sanitize(process.env.SUPABASE_ANON_KEY);
-            const baseUrl = cleanUrl(process.env.SUPABASE_URL);
-            
-            // Pinging the root of the REST API is the most reliable way to wake up the DB
-            // without worrying about RLS policies or missing tables.
-            const url = baseUrl + '/rest/v1/';
-            
-            console.log('Target URL prefix:', baseUrl.substring(0, 30) + '...');
-            console.log('Key length:', key.length);
-            // Safe debug: show only first 4 chars to verify key presence/correctness
-            if (key.length > 4) {
-              console.log('Key prefix check:', key.substring(0, 4) + '...');
-            }
-            
-            if (key.length < 10) {
-              console.error('::error::La chiave API è vuota o troppo corta!');
+            const rawUrl = (process.env.URL_1 || process.env.URL_2 || '').trim();
+            const rawKey = (process.env.KEY_1 || process.env.KEY_2 || '').trim();
+
+            console.log('--- Diagnostic Info ---');
+            console.log('URL provided by secrets:', !!rawUrl);
+            console.log('Key provided by secrets:', !!rawKey);
+
+            if (!rawUrl || !rawKey) {
+              console.error('::error::Nessun segreto trovato! Assicurati di aver creato i Secrets \"SUPABASE_URL\" e \"SUPABASE_ANON_KEY\" nelle impostazioni di GitHub.');
               process.exit(1);
             }
 
+            const sanitize = (s) => s.replace(/[\x00-\x1F\x7F-\xFF]/g, '').trim();
+            const url = rawUrl.replace(/\/+$/, '') + '/rest/v1/';
+            const key = sanitize(rawKey);
+
+            console.log('Target URL prefix:', url.substring(0, 30) + '...');
+            console.log('Key length:', key.length);
+            if (key.length > 4) console.log('Key prefix check:', key.substring(0, 4) + '...');
+
             try {
-              console.log('Sending Keep-Alive ping to REST root...');
+              console.log('Sending Keep-Alive ping...');
               const res = await fetch(url, {
-                headers: {
-                  'apikey': key,
-                  'Authorization': 'Bearer ' + key
-                }
+                headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
               });
               
               console.log('Response Status:', res.status, res.statusText);
@@ -56,7 +54,6 @@ jobs:
                 process.exit(0);
               } else {
                 console.error('Ping failed with status:', res.status);
-                // 401: Key issue, 404: URL issue
                 process.exit(1);
               }
             } catch (e) {
