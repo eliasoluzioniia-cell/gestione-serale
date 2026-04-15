@@ -168,7 +168,7 @@ export default function GestioneClassi({ session }: { session: any }) {
     const reallyRemove = confirm('Rimuovere lo studente da questa classe?')
     if (!reallyRemove) return
 
-    const { error: errRem } = await supabase.from('studenti_classi').eq('studente_id', studentId).eq('classe_id', selectedClassId).delete()
+    const { error: errRem } = await supabase.from('studenti_classi').delete().eq('studente_id', studentId).eq('classe_id', selectedClassId)
     
     if (errRem) {
       alert(errRem.message)
@@ -178,7 +178,7 @@ export default function GestioneClassi({ session }: { session: any }) {
     // Ask if delete from system too
     const deleteGlobal = confirm('Vuoi anche eliminare definitivamente lo studente dall\'anagrafe globale?')
     if (deleteGlobal) {
-      const { error: errGlob } = await supabase.from('studenti').eq('id', studentId).delete()
+      const { error: errGlob } = await supabase.from('studenti').delete().eq('id', studentId)
       if (errGlob) alert("Errore durante l'eliminazione globale: " + errGlob.message)
     }
 
@@ -235,7 +235,7 @@ export default function GestioneClassi({ session }: { session: any }) {
 
   const handleRemoveAssignment = async (assignmentId: string) => {
     if (!confirm('Rimuovere questa cattedra?')) return
-    const { error } = await supabase.from('assegnazioni_cattedre').eq('id', assignmentId).delete()
+    const { error } = await supabase.from('assegnazioni_cattedre').delete().eq('id', assignmentId)
     if (error) alert(error.message)
     else fetchData()
   }
@@ -321,7 +321,7 @@ export default function GestioneClassi({ session }: { session: any }) {
   const handleDelete = async (id: string) => {
     if (!confirm('Sei sicuro di voler eliminare questa classe?')) return
     
-    const { error } = await supabase.from('classi').eq('id', id).delete()
+    const { error } = await supabase.from('classi').delete().eq('id', id)
     if (error) {
       alert('Errore durante l\'eliminazione: ' + error.message)
     } else {
@@ -352,7 +352,7 @@ export default function GestioneClassi({ session }: { session: any }) {
 
     let res;
     if (editingClass.id) {
-      res = await supabase.from('classi').eq('id', editingClass.id).update(payload)
+      res = await supabase.from('classi').update(payload).eq('id', editingClass.id)
     } else {
       res = await supabase.from('classi').insert([payload])
     }

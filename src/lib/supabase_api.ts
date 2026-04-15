@@ -3,8 +3,8 @@
  * Tutte le funzioni sono identiche nell'interfaccia ma usano il nuovo client Neon via API Routes.
  * Import: 'import { supabase } from './api'' invece di '@supabase/supabase-js'
  */
-import { supabase } from './api';
-export { supabase }; // re-export per compatibilità con pagine che importano direttamente
+import { supabase } from './supabase';
+export { supabase };
 import type { ProvaDiRealta, Valutazione, Competenza, CurriculoEntry } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
@@ -366,7 +366,7 @@ export async function getProveDiRealtaConValutazioni(classeId: string, _docenteI
 }
 
 export async function updateProvaDiRealta(id: string, updates: any) {
-  const result = await supabase.from('prove_di_realta').eq('id', id).update(updates);
+  const result = await supabase.from('prove_di_realta').update(updates).eq('id', id);
   const r = await (result as any);
   if (r.error) throw r.error;
   return r.data;
@@ -384,7 +384,7 @@ export async function updateValutazioniBulk(valutazioni: any[]) {
 }
 
 export async function deleteProvaDiRealta(id: string) {
-  const result = await supabase.from('prove_di_realta').eq('id', id).delete();
+  const result = await supabase.from('prove_di_realta').delete().eq('id', id);
   const r = await (result as any);
   if (r.error) throw r.error;
   return true;
