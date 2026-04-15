@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Session } from '../lib/api';
+import type { Session } from '../lib/supabase';
 import { supabase } from '../lib/supabase_api';
 import type { Indirizzo, Classe } from '../types';
 import ImportCurriculoModal from '../components/ImportCurriculoModal';

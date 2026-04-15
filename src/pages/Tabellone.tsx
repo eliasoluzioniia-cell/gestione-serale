@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Session } from '../lib/api';
+import type { Session } from '../lib/supabase';
 import { getProveDiRealtaConValutazioni, deleteProvaDiRealta } from '../lib/supabase_api';
 import EditProvaModal from '../components/EditProvaModal';
 

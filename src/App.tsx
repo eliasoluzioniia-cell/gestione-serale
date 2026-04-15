@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { api } from './lib/api'
-import type { Session } from './lib/api'
+import { supabase } from './lib/supabase'
+import type { Session } from './lib/supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import GestioneClassi from './pages/GestioneClassi'
@@ -24,8 +24,8 @@ export default function App() {
   useEffect(() => {
     console.log('App: mounting and fetching session');
 
-    // Recupera la sessione corrente dal token in localStorage
-    api.auth.getSession().then(({ data: { session } }) => {
+    // Recupera la sessione corrente
+    supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('App: session retrieved', !!session);
       setSession(session)
       setLoading(false)
@@ -35,7 +35,7 @@ export default function App() {
     });
 
     // Ascolta i cambiamenti di stato auth
-    const { data: { subscription } } = api.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('App: auth state changed', _event, !!session);
       setSession(session)
     })

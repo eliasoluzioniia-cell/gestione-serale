@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Session } from '../lib/api';
+import type { Session } from '../lib/supabase';
 import { supabase } from '../lib/supabase_api';
 import type { Studente } from '../types';
 import ImportStudentiModal from '../components/ImportStudentiModal';
