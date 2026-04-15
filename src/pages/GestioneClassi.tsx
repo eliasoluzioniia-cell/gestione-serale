@@ -100,7 +100,7 @@ export default function GestioneClassi({ session }: { session: any }) {
     const { data: countData } = await supabase.from('studenti_classi').select('classe_id')
     const counts: Record<string, number> = {}
     if (countData) {
-      countData.forEach(cd => {
+      countData.forEach((cd: any) => {
         counts[cd.classe_id] = (counts[cd.classe_id] || 0) + 1
       })
     }
@@ -168,10 +168,7 @@ export default function GestioneClassi({ session }: { session: any }) {
     const reallyRemove = confirm('Rimuovere lo studente da questa classe?')
     if (!reallyRemove) return
 
-    const { error: errRem } = await supabase.from('studenti_classi').delete().match({
-      studente_id: studentId,
-      classe_id: selectedClassId
-    })
+    const { error: errRem } = await supabase.from('studenti_classi').eq('studente_id', studentId).eq('classe_id', selectedClassId).delete()
     
     if (errRem) {
       alert(errRem.message)
@@ -181,7 +178,7 @@ export default function GestioneClassi({ session }: { session: any }) {
     // Ask if delete from system too
     const deleteGlobal = confirm('Vuoi anche eliminare definitivamente lo studente dall\'anagrafe globale?')
     if (deleteGlobal) {
-      const { error: errGlob } = await supabase.from('studenti').delete().eq('id', studentId)
+      const { error: errGlob } = await supabase.from('studenti').eq('id', studentId).delete()
       if (errGlob) alert("Errore durante l'eliminazione globale: " + errGlob.message)
     }
 
@@ -204,15 +201,13 @@ export default function GestioneClassi({ session }: { session: any }) {
           cognome: editingStudent.cognome,
           matricola: editingStudent.matricola || `MAT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
         })
-        .select()
-        .single()
 
       if (stErr) throw stErr
 
       // 2. If new student, link to current class
       if (!editingStudent.id) {
         const { error: linkErr } = await supabase.from('studenti_classi').insert({
-          studente_id: stData.id,
+          studente_id: (stData as any)[0].id,
           classe_id: selectedClassId
         })
         if (linkErr) throw linkErr
@@ -240,7 +235,7 @@ export default function GestioneClassi({ session }: { session: any }) {
 
   const handleRemoveAssignment = async (assignmentId: string) => {
     if (!confirm('Rimuovere questa cattedra?')) return
-    const { error } = await supabase.from('assegnazioni_cattedre').delete().eq('id', assignmentId)
+    const { error } = await supabase.from('assegnazioni_cattedre').eq('id', assignmentId).delete()
     if (error) alert(error.message)
     else fetchData()
   }
@@ -269,10 +264,11 @@ export default function GestioneClassi({ session }: { session: any }) {
       const { data: pfiData } = await supabase
         .from('pfi')
         .select('*')
-        .match({ studente_id: student.id, classe_id: selectedClassId })
+        .eq('studente_id', student.id)
+        .eq('classe_id', selectedClassId)
       
       const pfiMap: Record<string, any> = {}
-      pfiData?.forEach(p => { pfiMap[p.competenza_id] = p })
+      pfiData?.forEach((p: any) => { pfiMap[p.competenza_id] = p })
       setStudentPFI(pfiMap)
     } finally {
       setLoading(false)
@@ -325,7 +321,7 @@ export default function GestioneClassi({ session }: { session: any }) {
   const handleDelete = async (id: string) => {
     if (!confirm('Sei sicuro di voler eliminare questa classe?')) return
     
-    const { error } = await supabase.from('classi').delete().eq('id', id)
+    const { error } = await supabase.from('classi').eq('id', id).delete()
     if (error) {
       alert('Errore durante l\'eliminazione: ' + error.message)
     } else {
@@ -356,7 +352,7 @@ export default function GestioneClassi({ session }: { session: any }) {
 
     let res;
     if (editingClass.id) {
-      res = await supabase.from('classi').update(payload).eq('id', editingClass.id)
+      res = await supabase.from('classi').eq('id', editingClass.id).update(payload)
     } else {
       res = await supabase.from('classi').insert([payload])
     }

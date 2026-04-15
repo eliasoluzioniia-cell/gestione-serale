@@ -58,8 +58,7 @@ export default function Login() {
           data: { 
             role,
             docente_id: role === 'Docente' ? selectedTeacherId : null
-          },
-          emailRedirectTo: `${window.location.origin}/dashboard`
+          }
         }
       })
 

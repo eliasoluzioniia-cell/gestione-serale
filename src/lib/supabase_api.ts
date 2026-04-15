@@ -10,6 +10,7 @@ import type { ProvaDiRealta, Valutazione, Competenza, CurriculoEntry } from '../
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 // Helper per chiamate dirette alle API Routes dedicate (per query complesse)
+/*
 async function apiCall(path: string, method = 'GET', body?: any) {
   const token = localStorage.getItem('neon_auth_token');
   const res = await fetch(`${API_BASE}${path}`, {
@@ -24,6 +25,7 @@ async function apiCall(path: string, method = 'GET', body?: any) {
   if (!res.ok) throw new Error(data.error || 'Errore API');
   return data;
 }
+*/
 
 /**
  * 0. Recupera l'ID interno del docente per l'utente loggato
@@ -169,7 +171,7 @@ export async function getStudentiPFI(classeId: string, competenzaId: string) {
 /**
  * 3b. Caricamento Studenti PFI per multiple competenze
  */
-export async function getStudentiPFIMulticompetenza(classeId: string, competenzeIds: string[]) {
+export async function getStudentiPFIMulticompetenza(classeId: string, _competenzeIds: string[]) {
   const { data: students, error: stError } = await supabase
     .from('studenti_classi')
     .select('studente_id')
@@ -227,7 +229,7 @@ export async function saveValutazioni(valutazioni: Omit<Valutazione, 'id'>[]) {
 /**
  * 5. Report Competenze
  */
-export async function getReportCompetenzeClasse(classeId: string) {
+export async function getReportCompetenzeClasse(_classeId: string) {
   const { data, error } = await supabase
     .from('valutazioni')
     .select('voto_numerico,livello,studente_id,prova_id');
@@ -353,7 +355,7 @@ export async function deleteProfile(id: string) {
 /**
  * 8. Prove di Realtà con Valutazioni
  */
-export async function getProveDiRealtaConValutazioni(classeId: string, docenteId?: string) {
+export async function getProveDiRealtaConValutazioni(classeId: string, _docenteId?: string) {
   const { data, error } = await supabase
     .from('prove_di_realta')
     .select('*')
@@ -364,7 +366,7 @@ export async function getProveDiRealtaConValutazioni(classeId: string, docenteId
 }
 
 export async function updateProvaDiRealta(id: string, updates: any) {
-  const result = await supabase.from('prove_di_realta').update(updates).eq('id', id);
+  const result = await supabase.from('prove_di_realta').eq('id', id).update(updates);
   const r = await (result as any);
   if (r.error) throw r.error;
   return r.data;
@@ -382,7 +384,7 @@ export async function updateValutazioniBulk(valutazioni: any[]) {
 }
 
 export async function deleteProvaDiRealta(id: string) {
-  const result = await supabase.from('prove_di_realta').delete().eq('id', id);
+  const result = await supabase.from('prove_di_realta').eq('id', id).delete();
   const r = await (result as any);
   if (r.error) throw r.error;
   return true;

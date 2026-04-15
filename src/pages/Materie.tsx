@@ -87,7 +87,7 @@ export default function Materie({ session }: { session: any }) {
     setSaving(true)
     setError(null)
     const { error } = editingMateria.id 
-      ? await supabase.from('materie').update(editingMateria).eq('id', editingMateria.id)
+      ? await supabase.from('materie').eq('id', editingMateria.id).update(editingMateria)
       : await supabase.from('materie').insert([editingMateria])
     
     if (error) setError(error.message)
@@ -102,7 +102,7 @@ export default function Materie({ session }: { session: any }) {
   const handleDeleteMateria = async (id: string) => {
     if (!id) return
     if (!confirm("Eliminare questa materia?")) return
-    const { error } = await supabase.from('materie').delete().eq('id', id)
+    const { error } = await supabase.from('materie').eq('id', id).delete()
     if (error) setError(error.message)
     else fetchData()
   }
@@ -114,7 +114,7 @@ export default function Materie({ session }: { session: any }) {
     setSaving(true)
     setError(null)
     const { error } = editingDocente.id 
-      ? await supabase.from('docenti').update(editingDocente).eq('id', editingDocente.id)
+      ? await supabase.from('docenti').eq('id', editingDocente.id).update(editingDocente)
       : await supabase.from('docenti').insert([editingDocente])
     
     if (error) setError(error.message)
@@ -129,7 +129,7 @@ export default function Materie({ session }: { session: any }) {
   const handleDeleteDocente = async (id: string) => {
     if (!id) return
     if (!confirm("Eliminare questo docente?")) return
-    const { error } = await supabase.from('docenti').delete().eq('id', id)
+    const { error } = await supabase.from('docenti').eq('id', id).delete()
     if (error) setError(error.message)
     else fetchData()
   }
@@ -153,7 +153,7 @@ export default function Materie({ session }: { session: any }) {
   const handleDeleteAssegnazione = async (id: string) => {
     if (!id) return
     if (!confirm("Rimuovere questa assegnazione?")) return
-    const { error } = await supabase.from('assegnazioni_cattedre').delete().eq('id', id)
+    const { error } = await supabase.from('assegnazioni_cattedre').eq('id', id).delete()
     if (error) setError(error.message)
     else fetchData()
   }

@@ -9,14 +9,14 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true)
-      const { count: classiCount } = await supabase.from('classi').select('*', { count: 'exact', head: true })
-      const { count: materieCount } = await supabase.from('materie').select('*', { count: 'exact', head: true })
-      const { count: valutazioniCount } = await supabase.from('valutazioni').select('*', { count: 'exact', head: true })
+      const { data: classiData } = await supabase.from('classi').select('*')
+      const { data: materieData } = await supabase.from('materie').select('*')
+      const { data: valutazioniData } = await supabase.from('valutazioni').select('*')
       
       setStats({
-        classi: classiCount || 0,
-        materiali: materieCount || 0,
-        voti: valutazioniCount || 0
+        classi: classiData?.length || 0,
+        materiali: materieData?.length || 0,
+        voti: valutazioniData?.length || 0
       })
       setLoading(false)
     }

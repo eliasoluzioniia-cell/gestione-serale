@@ -232,7 +232,7 @@ function from(table: string) {
       eqFilters.push(`eq=${col}:${val}`);
       return builder;
     },
-    is(col: string, val: null) {
+    is(col: string, _val: null) {
       isFilters.push(`is=${col}:null`);
       return builder;
     },
@@ -276,7 +276,7 @@ function from(table: string) {
     // INSERT
     async insert(rows: any | any[]) {
       const arr = Array.isArray(rows) ? rows : [rows];
-      const results = [];
+      const results: any[] = [];
       for (const row of arr) {
         const res = await fetch(`${API_BASE}/data/${table}`, {
           method: 'POST',
@@ -304,7 +304,7 @@ function from(table: string) {
       // Per semplicità, usa insert via API (la API usa INSERT ... ON CONFLICT se configurato)
       // Nella pratica, il backend gestisce l'upsert tramite query SQL specifiche
       const arr = Array.isArray(rows) ? rows : [rows];
-      const results = [];
+      const results: any[] = [];
       for (const row of arr) {
         const res = await fetch(`${API_BASE}/data/${table}`, {
           method: 'POST',
@@ -315,13 +315,22 @@ function from(table: string) {
         if (!res.ok) return { data: null, error: data };
         results.push(data);
       }
-      return { data: results, error: null };
+      return { 
+        data: results, 
+        error: null,
+        select() {
+          return { data: results, error: null, single: () => ({ data: results[0], error: null }) };
+        },
+        single() {
+          return { data: results[0], error: null };
+        },
+      };
     },
 
     // UPDATE
     async update(updates: any) {
       let recordId: string | null = null;
-      const eqSet = eqFilters.map((f) => {
+      eqFilters.map((f) => {
         const val = f.replace('eq=', '').split(':');
         if (val[0] === 'id') recordId = val[1];
         return val;
@@ -392,7 +401,7 @@ export const api = {
   from,
   /** Compatibilità: funzioni di edge non più usate */
   functions: {
-    invoke: async (name: string, opts?: any) => {
+    invoke: async (name: string, _opts?: any) => {
       console.warn(`supabase.functions.invoke('${name}') non supportato. Usa le API Routes.`);
       return { data: null, error: { message: 'Edge functions non disponibili. Usa API Routes.' } };
     },
