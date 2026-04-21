@@ -24,6 +24,7 @@ export default function RegistroVoti({ session }: { session: any }) {
 
   useEffect(() => {
     const fetchAssegnazioni = async () => {
+      setLoading(true);
       try {
         if (isAdminOrTutor) {
           // fetch all assignments for all teachers
@@ -44,6 +45,8 @@ export default function RegistroVoti({ session }: { session: any }) {
       } catch (err) {
         console.error("Errore nel recupero assegnazioni:", err);
         setAssignments([]);
+      } finally {
+        setLoading(false);
       }
     };
     fetchAssegnazioni();
@@ -190,6 +193,12 @@ export default function RegistroVoti({ session }: { session: any }) {
               </option>
             ))}
           </select>
+          {assignments.length === 0 && !loading && (
+            <div className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-xl border border-red-100 mt-2">
+              <span className="material-symbols-outlined text-sm">warning</span>
+              <span className="text-xs font-bold">Nessuna assegnazione trovata per il tuo profilo docente.</span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4 relative z-10">

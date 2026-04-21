@@ -34,15 +34,19 @@ export async function getCurrentDocenteId(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
 
-  const userId = session.user.id;
+  const authUserId = session.user.id;
 
+  // Collega l'utente loggato (auth_id) al docente tramite la tabella utenti
   const { data, error } = await supabase
     .from('docenti')
-    .select('id')
-    .eq('utente_id', userId)
+    .select('id, utenti!inner(auth_id)')
+    .eq('utenti.auth_id', authUserId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data) {
+    console.warn("Nessun docente trovato per l'utente loggato:", authUserId);
+    return null;
+  }
   return (data as any).id;
 }
 
