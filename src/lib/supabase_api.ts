@@ -213,11 +213,18 @@ export async function saveProvaDiRealta(
     .insert([
       { assegnazione_id: assegnazioneId, competenza_id: competenzaId, descrizione, data_prova: dataProva }
     ])
-    .select()
-    .single();
+    .select();
 
-  if (error) throw error;
-  return data as ProvaDiRealta;
+  if (error) {
+    console.error("Errore in saveProvaDiRealta:", error);
+    throw error;
+  }
+  
+  if (!data || data.length === 0) {
+    throw new Error("Il database non ha restituito la riga inserita (controlla le policy RLS).");
+  }
+
+  return data[0] as ProvaDiRealta;
 }
 
 /**
@@ -229,11 +236,16 @@ export async function saveValutazioni(valutazioni: Omit<Valutazione, 'id'>[]) {
     const { data, error } = await supabase
       .from('valutazioni')
       .insert([val])
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
-    results.push(data);
+    if (error) {
+      console.error("Errore in saveValutazioni:", error);
+      throw error;
+    }
+    
+    if (data && data.length > 0) {
+      results.push(data[0]);
+    }
   }
   return results;
 }

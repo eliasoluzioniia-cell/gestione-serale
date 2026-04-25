@@ -95,6 +95,7 @@ export default function RegistroVoti({ session }: { session: any }) {
       setLoading(true);
       
       for (const compId of selectedCompetenze) {
+        console.log(`Salvataggio Prova per competenza: ${compId}`);
         const prova = await saveProvaDiRealta(
           selectedAssegnazione,
           compId,
@@ -102,8 +103,19 @@ export default function RegistroVoti({ session }: { session: any }) {
           dataProva
         );
 
+        if (!prova) {
+          console.error("saveProvaDiRealta ha restituito null");
+          throw new Error("Errore nella creazione della Prova di Realtà: record non restituito.");
+        }
+
+        console.log("Prova creata:", prova);
+
         const valutazioniPayload = studenti
           .filter(s => {
+            if (!s.studente) {
+               console.warn("Trovato record studente null in lista", s);
+               return false;
+            }
             const pfiForComp = s.pfis?.find((p: any) => p.competenza_id === compId);
             const hasCredit = pfiForComp?.crediti_riconosciuti;
             const inputs = votiInput[s.studente.id]?.[compId];
@@ -111,6 +123,8 @@ export default function RegistroVoti({ session }: { session: any }) {
           })
           .map(s => {
             const inputs = votiInput[s.studente.id][compId];
+            console.log(`Mapping valutazione per studente ${s.studente.id}`, inputs);
+            
             return {
               prova_id: prova.id,
               studente_id: s.studente.id,
@@ -120,6 +134,7 @@ export default function RegistroVoti({ session }: { session: any }) {
           });
 
         if (valutazioniPayload.length > 0) {
+          console.log(`Salvataggio ${valutazioniPayload.length} valutazioni...`);
           await saveValutazioni(valutazioniPayload);
         }
       }
