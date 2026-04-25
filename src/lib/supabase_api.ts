@@ -47,7 +47,7 @@ export async function getCurrentDocenteId(): Promise<string | null> {
     console.warn("Nessun docente trovato per l'utente loggato:", authUserId);
     return null;
   }
-  return (data as any).id;
+  return (data as any)?.id || null;
 }
 
 /**
@@ -70,20 +70,20 @@ export async function getDocenteClassi() {
   const enriched = await Promise.all(
     (data as any[]).map(async (row: any) => {
       const [classeRes, materiaRes, docenteRes] = await Promise.all([
-        supabase.from('classi').select('id,anno_corso,sezione,periodo,anno_scolastico_id').eq('id', row.classe_id).single(),
-        supabase.from('materie').select('id,codice,descrizione').eq('id', row.materia_id).single(),
-        supabase.from('docenti').select('id,nome,cognome').eq('id', row.docente_id).single(),
+        supabase.from('classi').select('id,anno_corso,sezione,periodo,anno_scolastico_id').eq('id', row.classe_id).maybeSingle(),
+        supabase.from('materie').select('id,codice,descrizione').eq('id', row.materia_id).maybeSingle(),
+        supabase.from('docenti').select('id,nome,cognome').eq('id', row.docente_id).maybeSingle(),
       ]);
       return {
         id: row.id,
-        classe: (classeRes as any).data,
-        materia: (materiaRes as any).data,
-        docente: (docenteRes as any).data,
+        classe: classeRes.data || null,
+        materia: materiaRes.data || null,
+        docente: docenteRes.data || null,
       };
     })
   );
 
-  return enriched;
+  return enriched.filter(a => a.classe && a.materia);
 }
 
 /**

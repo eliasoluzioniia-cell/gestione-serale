@@ -103,41 +103,41 @@ export default function RegistroVoti({ session }: { session: any }) {
           dataProva
         );
 
-        if (!prova) {
-          console.error("saveProvaDiRealta ha restituito null");
-          throw new Error("Errore nella creazione della Prova di Realtà: record non restituito.");
+        if (!prova || !prova.id) {
+          console.error("saveProvaDiRealta ha restituito un oggetto non valido:", prova);
+          throw new Error("Errore nella creazione della Prova di Realtà: record non valido o ID mancante (controlla le policy RLS).");
         }
 
-        console.log("Prova creata:", prova);
+        console.log("Prova creata con successo:", prova);
 
-        const valutazioniPayload = studenti
+        const valutazioniPayload = (studenti || [])
           .filter(s => {
-            if (!s?.studente?.id) {
-               console.warn("Studente non valido nella lista:", s);
-               return false;
-            }
-            const pfiForComp = s.pfis?.find((p: any) => p.competenza_id === compId);
+            const studentId = s?.studente?.id;
+            if (!studentId) return false;
+
+            const pfiForComp = s?.pfis?.find((p: any) => p?.competenza_id === compId);
             const hasCredit = pfiForComp?.crediti_riconosciuti;
-            const studentId = s.studente.id;
             const inputs = votiInput[studentId]?.[compId];
             return !hasCredit && (inputs?.voto_numerico || inputs?.livello);
           })
           .map(s => {
-            const studentId = s.studente.id;
+            const studentId = s?.studente?.id;
+            if (!studentId) throw new Error("ID studente mancante durante il salvataggio.");
             const inputs = votiInput[studentId][compId];
-            console.log(`Mapping valutazione per studente ${studentId}`, inputs);
             
             return {
-              prova_id: prova.id,
+              prova_id: prova?.id,
               studente_id: studentId,
-              voto_numerico: inputs.voto_numerico ? Number(inputs.voto_numerico) : undefined,
-              livello: inputs.livello as any
+              voto_numerico: inputs?.voto_numerico ? Number(inputs.voto_numerico) : undefined,
+              livello: inputs?.livello as any
             };
           });
 
         if (valutazioniPayload.length > 0) {
           console.log(`Salvataggio ${valutazioniPayload.length} valutazioni...`);
           await saveValutazioni(valutazioniPayload);
+        } else {
+          console.log("Nessuna valutazione da salvare per questa competenza.");
         }
       }
 
