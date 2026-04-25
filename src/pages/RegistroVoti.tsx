@@ -112,22 +112,24 @@ export default function RegistroVoti({ session }: { session: any }) {
 
         const valutazioniPayload = studenti
           .filter(s => {
-            if (!s.studente) {
-               console.warn("Trovato record studente null in lista", s);
+            if (!s?.studente?.id) {
+               console.warn("Studente non valido nella lista:", s);
                return false;
             }
             const pfiForComp = s.pfis?.find((p: any) => p.competenza_id === compId);
             const hasCredit = pfiForComp?.crediti_riconosciuti;
-            const inputs = votiInput[s.studente.id]?.[compId];
+            const studentId = s.studente.id;
+            const inputs = votiInput[studentId]?.[compId];
             return !hasCredit && (inputs?.voto_numerico || inputs?.livello);
           })
           .map(s => {
-            const inputs = votiInput[s.studente.id][compId];
-            console.log(`Mapping valutazione per studente ${s.studente.id}`, inputs);
+            const studentId = s.studente.id;
+            const inputs = votiInput[studentId][compId];
+            console.log(`Mapping valutazione per studente ${studentId}`, inputs);
             
             return {
               prova_id: prova.id,
-              studente_id: s.studente.id,
+              studente_id: studentId,
               voto_numerico: inputs.voto_numerico ? Number(inputs.voto_numerico) : undefined,
               livello: inputs.livello as any
             };
