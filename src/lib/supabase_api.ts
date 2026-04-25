@@ -383,11 +383,31 @@ export async function deleteProfile(id: string) {
 /**
  * 8. Prove di Realtà con Valutazioni
  */
-export async function getProveDiRealtaConValutazioni(classeId: string, _docenteId?: string) {
-  const { data, error } = await supabase
+export async function getProveDiRealtaConValutazioni(classeId: string, docenteId?: string) {
+  let query = supabase
     .from('prove_di_realta')
-    .select('*')
-    .eq('assegnazione_id', classeId);
+    .select(`
+      *,
+      competenza:competenze(*),
+      valutazioni(
+        *,
+        studente:studenti(*)
+      ),
+      materia:assegnazioni_cattedre!inner(
+        id,
+        classe_id,
+        docente_id,
+        materia:materie(*),
+        docente:docenti(*)
+      )
+    `)
+    .eq('materia.classe_id', classeId);
+
+  if (docenteId) {
+    query = query.eq('materia.docente_id', docenteId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];
