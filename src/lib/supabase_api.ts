@@ -208,12 +208,16 @@ export async function saveProvaDiRealta(
   descrizione: string,
   dataProva: string
 ) {
-  const result = await supabase.from('prove_di_realta').insert([
-    { assegnazione_id: assegnazioneId, competenza_id: competenzaId, descrizione, data_prova: dataProva }
-  ]);
-  const insertResult = await (result as any);
-  if (insertResult.error) throw insertResult.error;
-  return insertResult.data as ProvaDiRealta;
+  const { data, error } = await supabase
+    .from('prove_di_realta')
+    .insert([
+      { assegnazione_id: assegnazioneId, competenza_id: competenzaId, descrizione, data_prova: dataProva }
+    ])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as ProvaDiRealta;
 }
 
 /**
@@ -222,10 +226,14 @@ export async function saveProvaDiRealta(
 export async function saveValutazioni(valutazioni: Omit<Valutazione, 'id'>[]) {
   const results = [];
   for (const val of valutazioni) {
-    const result = await supabase.from('valutazioni').insert([val]);
-    const r = await (result as any);
-    if (r.error) throw r.error;
-    results.push(r.data);
+    const { data, error } = await supabase
+      .from('valutazioni')
+      .insert([val])
+      .select()
+      .single();
+
+    if (error) throw error;
+    results.push(data);
   }
   return results;
 }
@@ -265,14 +273,17 @@ export async function bulkImportStudenti(studentiData: {
   const upsertedStudents: any[] = [];
   for (const s of uniqueStudentiData) {
     try {
-      const result = await supabase.from('studenti').insert({
-        nome: s.nome,
-        cognome: s.cognome,
-        codice_fiscale: s.codice_fiscale,
-        matricola: s.matricola || `MAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-      });
-      const r = await (result as any);
-      if (r.data) upsertedStudents.push(r.data);
+      const { data, error } = await supabase
+        .from('studenti')
+        .insert({
+          nome: s.nome,
+          cognome: s.cognome,
+          codice_fiscale: s.codice_fiscale,
+          matricola: s.matricola || `MAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        })
+        .select()
+        .single();
+      if (data) upsertedStudents.push(data);
     } catch {
       // Studente già esistente — salta
     }
@@ -370,19 +381,28 @@ export async function getProveDiRealtaConValutazioni(classeId: string, _docenteI
 }
 
 export async function updateProvaDiRealta(id: string, updates: any) {
-  const result = await supabase.from('prove_di_realta').update(updates).eq('id', id);
-  const r = await (result as any);
-  if (r.error) throw r.error;
-  return r.data;
+  const { data, error } = await supabase
+    .from('prove_di_realta')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function updateValutazioniBulk(valutazioni: any[]) {
   const results = [];
   for (const val of valutazioni) {
-    const result = await supabase.from('valutazioni').upsert(val);
-    const r = await (result as any);
-    if (r.error) throw r.error;
-    results.push(r.data);
+    const { data, error } = await supabase
+      .from('valutazioni')
+      .upsert(val)
+      .select()
+      .single();
+
+    if (error) throw error;
+    results.push(data);
   }
   return results;
 }
@@ -415,9 +435,13 @@ export async function bulkImportCurriculo(data: {
     // Upsert materia
     let materiaId: string | null = null;
     try {
-      const ins = await supabase.from('materie').insert({ codice: entry.materia_codice, descrizione: entry.materia_nome });
-      const r = await (ins as any);
-      materiaId = r.data?.id;
+      const { data, error } = await supabase
+        .from('materie')
+        .insert({ codice: entry.materia_codice, descrizione: entry.materia_nome })
+        .select()
+        .single();
+      if (error) throw error;
+      materiaId = data?.id;
     } catch {
       const { data: existing } = await supabase.from('materie').select('id').eq('codice', entry.materia_codice).single();
       materiaId = (existing as any)?.id;
@@ -426,9 +450,13 @@ export async function bulkImportCurriculo(data: {
     // Upsert competenza
     let compId: string | null = null;
     try {
-      const ins = await supabase.from('competenze').insert({ codice: entry.comp_codice, descrizione: entry.comp_desc, asse: entry.comp_asse });
-      const r = await (ins as any);
-      compId = r.data?.id;
+      const { data, error } = await supabase
+        .from('competenze')
+        .insert({ codice: entry.comp_codice, descrizione: entry.comp_desc, asse: entry.comp_asse })
+        .select()
+        .single();
+      if (error) throw error;
+      compId = data?.id;
     } catch {
       const { data: existing } = await supabase.from('competenze').select('id').eq('codice', entry.comp_codice).single();
       compId = (existing as any)?.id;
