@@ -295,6 +295,7 @@ export async function bulkImportStudenti(studentiData: {
         })
         .select()
         .single();
+      if (error) console.warn("Notice: could not upsert student:", error);
       if (data) upsertedStudents.push(data);
     } catch {
       // Studente già esistente — salta
